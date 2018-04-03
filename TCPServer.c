@@ -98,6 +98,7 @@ int SetCallBacksS(SST *serv,
 	void (*OnConnected)(SST *serv, LCL *cl),
 	int (*OnRead)(SST *serv, LCL *cl, char *buf, int len),
 	int (*OnWrite)(SST *serv, LCL *cl, int len),
+	void (*OnDisconnected)(SST *serv, LCL *cl),
 	void (*OnErr)(SST *serv, int err)) {
     int count = 0;
     if (OnConnected) {
@@ -110,6 +111,10 @@ int SetCallBacksS(SST *serv,
     }
     if (OnWrite) {
 	serv->OnWrite = OnWrite;
+	count++;
+    }
+    if (OnDisconnected) {
+	serv->OnDisconnected = OnDisconnected;
 	count++;
     }
     if (OnErr) {
@@ -133,6 +138,7 @@ static void *MainReadero(void *data) {
 	    if (serv->OnRead) {
 		if (serv->OnRead(serv, it, bin, all) != 0) {
 		    close(it->client);
+		    if (serv->OnDisconnected)serv->OnDisconnected(serv, it);
 		    DelPlease(it);
 		    break;
 		} else {
@@ -193,6 +199,7 @@ static void *MainAccepto(void *data) {
 		(void *) & temp) != 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -10);
 	    close(temp->client);
+	    if (serv->OnDisconnected)serv->OnDisconnected(serv, temp);
 	    DelPlease(temp);
 	}
 
@@ -241,6 +248,7 @@ int Listen(SST *serv, char *host, char *port) {
 
 	if (pthread_create(&serv->treads.AcptThread, NULL, MainAccepto,
 		(void *) & serv) != 0) {
+	    if (serv->OnErr)serv->OnErr(serv, -5);
 	    close(serv->sock);
 	    serv->sock = 0;
 	}

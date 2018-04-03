@@ -24,7 +24,12 @@ extern "C" {
 
     SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen);
 
-    int SetCallBacksC(SCT *cl, int (*OnRead)(SCT *cl, char *buf, int len), int (*OnWrite)(SCT *cl, int len), void (*OnErr)(SCT *cl, int err));
+    int SetCallBacksC(SCT *cl,
+	    int (*OnRead)(SCT *cl, char *buf, int len),
+	    int (*OnWrite)(SCT *cl, int len),
+	    void (*OnDisconnected)(SCT *cl),
+	    void (*OnErr)(SCT *cl, int err));
+
     int Connect(SCT *cl, char *host, char *port);
 
     int Send(SCT *cl, char *buf, int len);

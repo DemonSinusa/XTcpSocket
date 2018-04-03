@@ -48,7 +48,11 @@ void FinitClient(SCT *cl) {
     }
 }
 
-int SetCallBacksC(SCT *cl, int (*OnRead)(SCT *cl, char *buf, int len), int (*OnWrite)(SCT *cl, int len), void (*OnErr)(SCT *cl, int err)) {
+int SetCallBacksC(SCT *cl,
+	int (*OnRead)(SCT *cl, char *buf, int len),
+	int (*OnWrite)(SCT *cl, int len),
+	void (*OnDisconnected)(SCT *cl),
+	void (*OnErr)(SCT *cl, int err)) {
     int count = 0;
     if (OnRead) {
 	cl->OnRead = OnRead;
@@ -56,6 +60,10 @@ int SetCallBacksC(SCT *cl, int (*OnRead)(SCT *cl, char *buf, int len), int (*OnW
     }
     if (OnWrite) {
 	cl->OnWrite = OnWrite;
+	count++;
+    }
+    if (OnDisconnected) {
+	cl->OnDisconnected = OnDisconnected;
 	count++;
     }
     if (OnErr) {
@@ -78,6 +86,7 @@ static void *ReadThreadMain(void *clntSock) {
 		if (cl->OnRead(cl, bin, all) != 0) {
 		    close(cl->sock);
 		    cl->sock = 0;
+		    if (cl->OnDisconnected)cl->OnDisconnected(cl);
 		    break;
 		} else {
 		    cl->count.AllRead += cl->count.PrevRead;
@@ -137,6 +146,7 @@ int Connect(SCT *cl, char *host, char *port) {
 		(void *) & cl) != 0) {
 	    close(cl->sock);
 	    cl->sock = 0;
+	    if (cl->OnDisconnected)cl->OnDisconnected(cl);
 	    if (cl->OnErr)cl->OnErr(cl, -3);
 	}
     }
@@ -170,6 +180,7 @@ int Send(SCT *cl, char *buf, int len) {
     } else {
 	close(cl->sock);
 	cl->sock = 0;
+	if (cl->OnDisconnected)cl->OnDisconnected(cl);
     }
     return total;
 

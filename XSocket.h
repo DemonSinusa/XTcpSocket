@@ -32,6 +32,7 @@ typedef struct _sockclient_type_ {
     Counts count;
     int (*OnRead)(struct _sockclient_type_ *cl, char *buf, int len);
     int (*OnWrite)(struct _sockclient_type_ *cl, int len);
+    void (*OnDisconnected)(struct _sockclient_type_ *cl);
     void (*OnErr)(struct _sockclient_type_ *cl, int err);
 } SCT;
 
@@ -56,6 +57,7 @@ typedef struct _sockserver_type_ {
     void (*OnConnected)(struct _sockserver_type_ *s, LCL *client);
     int (*OnRead)(struct _sockserver_type_ *s, LCL *cl, char *buf, int len);
     int (*OnWrite)(struct _sockserver_type_ *s, LCL *cl, int len);
+    void (*OnDisconnected)(struct _sockserver_type_ *s, LCL *cl);
     void (*OnErr)(struct _sockserver_type_ *s, int err);
     LCL *first, *end;
 } SST;

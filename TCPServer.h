@@ -26,6 +26,7 @@ extern "C" {
 	    void (*OnConnected)(SST *serv, LCL *cl),
 	    int (*OnRead)(SST *serv, LCL *cl, char *buf, int len),
 	    int (*OnWrite)(SST *serv, LCL *cl, int len),
+	    void (*OnDisconnected)(SST *serv, LCL *cl),
 	    void (*OnErr)(SST *serv, int err));
 
     int Listen(SST *, char *host, char *port);
