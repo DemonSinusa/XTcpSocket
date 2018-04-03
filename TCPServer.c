@@ -210,9 +210,13 @@ static void *MainAccepto(void *data) {
 int Listen(SST *serv, char *host, char *port) {
     int status;
     int one = 1;
+    char *hostint = NULL;
     struct addrinfo *servinfo = NULL, *tservinfo = NULL; // указатель на результаты вызова
 
-    if ((status = getaddrinfo(host, port, &serv->hints, &servinfo)) != 0) {
+    if (!host || strlen(host) < 3)hostint = (char *) "localhost";
+    else hostint = host;
+
+    if ((status = getaddrinfo(hostint, port, &serv->hints, &servinfo)) != 0) {
 	if (serv->OnErr)serv->OnErr(serv, -1);
 	return -1;
     } else {
