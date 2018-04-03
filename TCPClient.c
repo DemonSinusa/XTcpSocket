@@ -25,7 +25,7 @@
 
 #include "TCPClient.h"
 
-SCT *InitClient(int domain, int type, int flags, int protocol) {
+SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
     SCT *cl = NULL;
     if ((cl = (SCT *) malloc(sizeof (SCT))) != NULL) {
 	memset(cl, 0, sizeof (SCT));
@@ -34,6 +34,8 @@ SCT *InitClient(int domain, int type, int flags, int protocol) {
 	cl->hints.ai_socktype = type;
 	cl->hints.ai_flags = flags;
 	cl->hints.ai_protocol = protocol;
+
+	cl->buflen = rbuflen;
     }
     return cl;
 }
@@ -160,10 +162,9 @@ int Send(SCT *cl, char *buf, int len) {
 	cl->count.AllWrite += cl->count.PrevWrite;
 	cl->count.PrevWrite = total;
 
-	if (pthread_create(&cl->treads.Rthread, NULL, WriteThreadMain,
+	if (pthread_create(&cl->treads.Wthread, NULL, WriteThreadMain,
 		(void *) & cl) != 0) {
-	    close(cl->sock);
-	    cl->sock = 0;
+	    if (cl->OnErr)cl->OnErr(-200);
 	}
 
     } else {

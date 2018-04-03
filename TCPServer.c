@@ -66,7 +66,7 @@ void DelPlease(LCL *it) {
 
 //-----------------------------------------
 
-SST *InitServer(int domain, int type, int flags, int protocol) {
+SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
     SST *serv = NULL;
     if ((serv = (SST *) malloc(sizeof (SST))) != NULL) {
 	memset(serv, 0, sizeof (SST));
@@ -75,6 +75,8 @@ SST *InitServer(int domain, int type, int flags, int protocol) {
 	serv->hints.ai_socktype = type;
 	serv->hints.ai_flags = flags;
 	serv->hints.ai_protocol = protocol;
+
+	serv->bufftoclient = rbuflen;
     }
     return serv;
 }
@@ -245,5 +247,37 @@ int Listen(SST *serv, char *host, char *port) {
 }
 
 int SendToClient(LCL *cl, char *buf, int len) {
+    int total = 0; // Сколько уже
+    int bytesleft = len; // Сколько нужно
+    int n = 0;
+    SST *serv = (SST *) cl->ServST;
+
+    while (total < len) {
+	n = send(cl->client, buf + total, bytesleft, 0);
+	if (n == -1) {
+	    if (serv->OnErr)serv->OnErr(-1000);
+	    break;
+	}
+	total += n;
+	bytesleft -= n;
+    }
+
+    if (n >= 0) {
+	cl->count.AllWrite += cl->count.PrevWrite;
+	cl->count.PrevWrite = total;
+
+	serv->count.AllWrite += cl->count.PrevWrite;
+	serv->count.PrevWrite = cl->count.PrevWrite;
+
+	if (pthread_create(&cl->Wthread, NULL, MainWritero,
+		(void *) & cl) != 0) {
+	    if (serv->OnErr)serv->OnErr(-2000);
+	}
+
+    } else {
+	close(cl->client);
+	DelPlease(cl);
+    }
+    return total;
 
 }

@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-    SCT *InitClient(int domain, int type, int flags, int protocol); //В параметры можно закинуть всякое флаговое и\ли бинарное дерьмиЩ
+    SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen);
 
     int SetCallBacksC(SCT *cl, int (*OnRead)(char *buf, int len), int (*OnWrite)(int len), void (*OnErr)(int err));
     int Connect(SCT *cl, char *host, char *port);

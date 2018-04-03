@@ -20,7 +20,7 @@
 extern "C" {
 #endif
 
-    SST *InitServer(); //В параметры можно закинуть всякое флаговое и\ли бинарное дерьмиЩ
+    SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen);
 
     int SetCallBacksS(SST *serv,
 	    void (*OnConnected)(LCL *cl),
