@@ -30,9 +30,9 @@ typedef struct _sockclient_type_ {
     struct addrinfo hints;
     TCT treads;
     Counts count;
-    int (*OnRead)(char *buf, int len);
-    int (*OnWrite)(int len);
-    void (*OnErr)(int err);
+    int (*OnRead)(struct _sockclient_type_ *cl, char *buf, int len);
+    int (*OnWrite)(struct _sockclient_type_ *cl, int len);
+    void (*OnErr)(struct _sockclient_type_ *cl, int err);
 } SCT;
 
 typedef struct _thread_srvt_ {
@@ -53,10 +53,10 @@ typedef struct _sockserver_type_ {
     struct addrinfo hints;
     TST treads;
     Counts count;
-    void (*OnConnected)(LCL *client);
-    int (*OnRead)(LCL *cl, char *buf, int len);
-    int (*OnWrite)(LCL *cl, int len);
-    void (*OnErr)(int err);
+    void (*OnConnected)(struct _sockserver_type_ *s, LCL *client);
+    int (*OnRead)(struct _sockserver_type_ *s, LCL *cl, char *buf, int len);
+    int (*OnWrite)(struct _sockserver_type_ *s, LCL *cl, int len);
+    void (*OnErr)(struct _sockserver_type_ *s, int err);
     LCL *first, *end;
 } SST;
 

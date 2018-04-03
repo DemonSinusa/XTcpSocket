@@ -95,10 +95,10 @@ void FinitServer(SST *serv) {
 }
 
 int SetCallBacksS(SST *serv,
-	void (*OnConnected)(LCL *cl),
-	int (*OnRead)(LCL *cl, char *buf, int len),
-	int (*OnWrite)(LCL *cl, int len),
-	void (*OnErr)(int err)) {
+	void (*OnConnected)(SST *serv, LCL *cl),
+	int (*OnRead)(SST *serv, LCL *cl, char *buf, int len),
+	int (*OnWrite)(SST *serv, LCL *cl, int len),
+	void (*OnErr)(SST *serv, int err)) {
     int count = 0;
     if (OnConnected) {
 	serv->OnConnected = OnConnected;
@@ -125,13 +125,13 @@ static void *MainReadero(void *data) {
     pthread_detach(it->Rthread);
 
     char *bin = (char *) malloc(it->buflen);
-    int readl = 0, all = 0, error = 0;
+    int readl = 0, all = 0;
 
     while ((readl = recv(it->client, &bin[all], it->buflen, MSG_WAITALL)) >= 0) {
 	all += readl;
 	if (readl == 0)
 	    if (serv->OnRead) {
-		if (serv->OnRead(it, bin, all) != 0) {
+		if (serv->OnRead(serv, it, bin, all) != 0) {
 		    close(it->client);
 		    DelPlease(it);
 		    break;
@@ -149,7 +149,7 @@ static void *MainReadero(void *data) {
     }
 
     if (readl < 0 && errno != EINTR) {
-	if (serv->OnErr)serv->OnErr(-100);
+	if (serv->OnErr)serv->OnErr(serv, -100);
     } else {
 	it->count.AllRead += it->count.PrevRead;
 	it->count.PrevRead = all;
@@ -165,7 +165,7 @@ static void *MainWritero(void *data) {
     SST *serv = (SST *) it->ServST;
     pthread_detach(it->Wthread);
 
-    if (serv->OnWrite)serv->OnWrite(it, it->count.PrevWrite);
+    if (serv->OnWrite)serv->OnWrite(serv, it, it->count.PrevWrite);
 
     return NULL;
 }
@@ -186,9 +186,12 @@ static void *MainAccepto(void *data) {
 	temp->client = client;
 	temp->buflen = serv->bufftoclient;
 
+	if (serv->OnConnected)serv->OnConnected(serv, temp);
+	else if (serv->OnErr)serv->OnErr(serv, -20); //Важный кальбэк упущен.
+
 	if (pthread_create(&temp->Rthread, NULL, MainReadero,
 		(void *) & temp) != 0) {
-	    if (serv->OnErr)serv->OnErr(-10);
+	    if (serv->OnErr)serv->OnErr(serv, -10);
 	    close(temp->client);
 	    DelPlease(temp);
 	}
@@ -203,7 +206,7 @@ int Listen(SST *serv, char *host, char *port) {
     struct addrinfo *servinfo = NULL, *tservinfo = NULL; // указатель на результаты вызова
 
     if ((status = getaddrinfo(host, port, &serv->hints, &servinfo)) != 0) {
-	if (serv->OnErr)serv->OnErr(-1);
+	if (serv->OnErr)serv->OnErr(serv, -1);
 	return -1;
     } else {
 	//Можно продолжать-???:!
@@ -214,7 +217,7 @@ int Listen(SST *serv, char *host, char *port) {
 		continue;
 
 	    if (setsockopt(serv->sock, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof (one)) < 0) {
-		if (serv->OnErr)serv->OnErr(-4);
+		if (serv->OnErr)serv->OnErr(serv, -4);
 	    }
 
 	    if (bind(serv->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1)
@@ -224,10 +227,10 @@ int Listen(SST *serv, char *host, char *port) {
 	}
 
 	if (tservinfo == NULL) { /* No address succeeded */
-	    if (serv->OnErr)serv->OnErr(-2);
+	    if (serv->OnErr)serv->OnErr(serv, -2);
 	    return -2;
 	} else if (listen(serv->sock, 16) < 0) {
-	    if (serv->OnErr)serv->OnErr(-3);
+	    if (serv->OnErr)serv->OnErr(serv, -3);
 	    close(serv->sock);
 	    serv->sock = 0;
 	    freeaddrinfo(servinfo);
@@ -255,7 +258,7 @@ int SendToClient(LCL *cl, char *buf, int len) {
     while (total < len) {
 	n = send(cl->client, buf + total, bytesleft, 0);
 	if (n == -1) {
-	    if (serv->OnErr)serv->OnErr(-1000);
+	    if (serv->OnErr)serv->OnErr(serv, -1000);
 	    break;
 	}
 	total += n;
@@ -271,7 +274,7 @@ int SendToClient(LCL *cl, char *buf, int len) {
 
 	if (pthread_create(&cl->Wthread, NULL, MainWritero,
 		(void *) & cl) != 0) {
-	    if (serv->OnErr)serv->OnErr(-2000);
+	    if (serv->OnErr)serv->OnErr(serv, -2000);
 	}
 
     } else {

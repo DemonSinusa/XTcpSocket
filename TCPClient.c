@@ -48,7 +48,7 @@ void FinitClient(SCT *cl) {
     }
 }
 
-int SetCallBacksC(SCT *cl, int (*OnRead)(char *buf, int len), int (*OnWrite)(int len), void (*OnErr)(int err)) {
+int SetCallBacksC(SCT *cl, int (*OnRead)(SCT *cl, char *buf, int len), int (*OnWrite)(SCT *cl, int len), void (*OnErr)(SCT *cl, int err)) {
     int count = 0;
     if (OnRead) {
 	cl->OnRead = OnRead;
@@ -75,7 +75,7 @@ static void *ReadThreadMain(void *clntSock) {
 	all += readl;
 	if (readl == 0)
 	    if (cl->OnRead) {
-		if (cl->OnRead(bin, all) != 0) {
+		if (cl->OnRead(cl, bin, all) != 0) {
 		    close(cl->sock);
 		    cl->sock = 0;
 		    break;
@@ -91,7 +91,7 @@ static void *ReadThreadMain(void *clntSock) {
     }
 
     if (readl < 0 && errno != EINTR) {
-	if (cl->OnErr)cl->OnErr(-30);
+	if (cl->OnErr)cl->OnErr(cl, -30);
     } else {
 	cl->count.AllRead += cl->count.PrevRead;
 	cl->count.PrevRead = all;
@@ -103,7 +103,7 @@ static void *ReadThreadMain(void *clntSock) {
 static void *WriteThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
     pthread_detach(cl->treads.Wthread);
-    if (cl->OnWrite)cl->OnWrite(cl->count.PrevWrite);
+    if (cl->OnWrite)cl->OnWrite(cl, cl->count.PrevWrite);
     return NULL;
 }
 
@@ -112,7 +112,7 @@ int Connect(SCT *cl, char *host, char *port) {
     struct addrinfo *servinfo = NULL, *tservinfo = NULL; // указатель на результаты вызова
 
     if ((status = getaddrinfo(host, port, &cl->hints, &servinfo)) != 0) {
-	if (cl->OnErr)cl->OnErr(-1);
+	if (cl->OnErr)cl->OnErr(cl, -1);
 	return -1;
     } else {
 	//Можно продолжать-???:!
@@ -128,7 +128,7 @@ int Connect(SCT *cl, char *host, char *port) {
 	    close(cl->sock);
 	}
 	if (tservinfo == NULL) { /* No address succeeded */
-	    if (cl->OnErr)cl->OnErr(-2);
+	    if (cl->OnErr)cl->OnErr(cl, -2);
 	    return -2;
 	}
 	freeaddrinfo(servinfo);
@@ -137,7 +137,7 @@ int Connect(SCT *cl, char *host, char *port) {
 		(void *) & cl) != 0) {
 	    close(cl->sock);
 	    cl->sock = 0;
-	    if (cl->OnErr)cl->OnErr(-3);
+	    if (cl->OnErr)cl->OnErr(cl, -3);
 	}
     }
     return 0;
@@ -151,7 +151,7 @@ int Send(SCT *cl, char *buf, int len) {
     while (total < len) {
 	n = send(cl->sock, buf + total, bytesleft, 0);
 	if (n == -1) {
-	    if (cl->OnErr)cl->OnErr(-100);
+	    if (cl->OnErr)cl->OnErr(cl, -100);
 	    break;
 	}
 	total += n;
@@ -164,7 +164,7 @@ int Send(SCT *cl, char *buf, int len) {
 
 	if (pthread_create(&cl->treads.Wthread, NULL, WriteThreadMain,
 		(void *) & cl) != 0) {
-	    if (cl->OnErr)cl->OnErr(-200);
+	    if (cl->OnErr)cl->OnErr(cl, -200);
 	}
 
     } else {

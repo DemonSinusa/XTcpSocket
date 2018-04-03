@@ -23,10 +23,10 @@ extern "C" {
     SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen);
 
     int SetCallBacksS(SST *serv,
-	    void (*OnConnected)(LCL *cl),
-	    int (*OnRead)(LCL *cl, char *buf, int len),
-	    int (*OnWrite)(LCL *cl, int len),
-	    void (*OnErr)(int err));
+	    void (*OnConnected)(SST *serv, LCL *cl),
+	    int (*OnRead)(SST *serv, LCL *cl, char *buf, int len),
+	    int (*OnWrite)(SST *serv, LCL *cl, int len),
+	    void (*OnErr)(SST *serv, int err));
 
     int Listen(SST *, char *host, char *port);
 
