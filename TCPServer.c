@@ -196,10 +196,10 @@ static void *MainAccepto(void *data) {
 	temp->client = client;
 	temp->buflen = serv->bufftoclient;
 
-	//	pthread_attr_init(&tattr);
-	//	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	//	    if (serv->OnErr)serv->OnErr(serv, -30);
-	//	}
+	pthread_attr_init(&tattr);
+	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
+	    if (serv->OnErr)serv->OnErr(serv, -30);
+	}
 
 	if (pthread_create(&temp->Rthread, NULL, MainReadero, temp) != 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -10);
@@ -209,7 +209,7 @@ static void *MainAccepto(void *data) {
 	}
 
     }
-    //    pthread_exit(NULL);
+    pthread_exit(NULL);
 }
 
 int Listen(SST *serv, char *host, char *port) {
@@ -245,7 +245,7 @@ int Listen(SST *serv, char *host, char *port) {
 	if (tservinfo == NULL) { /* No address succeeded */
 	    if (serv->OnErr)serv->OnErr(serv, -2);
 	    return -2;
-	} else if (listen(serv->sock, 3) < 0) {
+	} else if (listen(serv->sock, 16) < 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -3);
 	    close(serv->sock);
 	    serv->sock = 0;
