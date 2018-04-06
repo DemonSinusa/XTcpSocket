@@ -134,10 +134,10 @@ static void *MainReadero(void *data) {
     if (serv->OnConnected)serv->OnConnected(serv, it);
     else if (serv->OnErr)serv->OnErr(serv, -20); //Важный кальбэк упущен.
 
-
-    while ((readl = recv(it->client, &bin[all], it->buflen, MSG_WAITALL)) >= 0) {
+    //MSG_WAITALL - чего ты ЖДЁЁЁЁшшш? ЧЕГО ты ждеЕЁЁёшш????!!!
+    while ((readl = recv(it->client, &bin[all], it->buflen, 0)) >= 0) {
 	all += readl;
-	if (readl == 0)
+	if (readl == 0 || readl < it->buflen) {
 	    if (serv->OnRead) {
 		if (serv->OnRead(serv, it, bin, all) != 0) {
 		    close(it->client);
@@ -149,9 +149,10 @@ static void *MainReadero(void *data) {
 		    it->count.PrevRead = all;
 		    serv->count.AllRead += serv->count.PrevRead;
 		    serv->count.PrevRead = all;
-		    all = 0;
 		}
 	    }
+	    all = 0;
+	}
 
 	bin = realloc(bin, all + it->buflen);
 
@@ -195,12 +196,12 @@ static void *MainAccepto(void *data) {
 	temp->client = client;
 	temp->buflen = serv->bufftoclient;
 
-	pthread_attr_init(&tattr);
-	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (serv->OnErr)serv->OnErr(serv, -30);
-	}
+	//	pthread_attr_init(&tattr);
+	//	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
+	//	    if (serv->OnErr)serv->OnErr(serv, -30);
+	//	}
 
-	if (pthread_create(&temp->Rthread, &tattr, MainReadero, temp) != 0) {
+	if (pthread_create(&temp->Rthread, NULL, MainReadero, temp) != 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -10);
 	    close(temp->client);
 	    if (serv->OnDisconnected)serv->OnDisconnected(serv, temp);
@@ -208,7 +209,7 @@ static void *MainAccepto(void *data) {
 	}
 
     }
-    pthread_exit(NULL);
+    //    pthread_exit(NULL);
 }
 
 int Listen(SST *serv, char *host, char *port) {
@@ -244,7 +245,7 @@ int Listen(SST *serv, char *host, char *port) {
 	if (tservinfo == NULL) { /* No address succeeded */
 	    if (serv->OnErr)serv->OnErr(serv, -2);
 	    return -2;
-	} else if (listen(serv->sock, 16) < 0) {
+	} else if (listen(serv->sock, 3) < 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -3);
 	    close(serv->sock);
 	    serv->sock = 0;
@@ -263,6 +264,7 @@ int Listen(SST *serv, char *host, char *port) {
 	    serv->sock = 0;
 	}
 
+	//	MainAccepto(serv);
     }
     return 0;
 }
@@ -275,8 +277,8 @@ int SendToClient(LCL *cl, char *buf, int len) {
     int one = 0;
     pthread_attr_t tattr;
 
-    while (total < len) {
-	n = send(cl->client, buf + total, bytesleft, 0);
+    while (total < len && n != -1) {
+	n = send(cl->client, &buf[total], bytesleft, 0);
 	if (n == -1) {
 	    if (serv->OnErr)serv->OnErr(serv, -1000);
 	    break;

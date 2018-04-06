@@ -80,9 +80,9 @@ static void *ReadThreadMain(void *clntSock) {
     char *bin = (char *) malloc(cl->buflen);
     int readl = 0, all = 0, error = 0;
     //MSG_WAITALL
-    while ((readl = recv(cl->sock, &bin[all], cl->buflen, MSG_WAITALL)) >= 0) {
+    while ((readl = recv(cl->sock, &bin[all], cl->buflen, 0)) >= 0) {
 	all += readl;
-	if (readl == 0)
+	if (readl == 0 || readl < cl->buflen)
 	    if (cl->OnRead) {
 		if (cl->OnRead(cl, bin, all) != 0) {
 		    close(cl->sock);
@@ -169,8 +169,8 @@ int Send(SCT *cl, char *buf, int len) {
     int one = 0;
     pthread_attr_t tattr;
 
-    while (total < len) {
-	n = send(cl->sock, buf + total, bytesleft, 0);
+    while (total < len && n != -1) {
+	n = send(cl->sock, &buf[total], bytesleft, 0);
 	if (n == -1) {
 	    if (cl->OnErr)cl->OnErr(cl, -100);
 	    break;
