@@ -73,10 +73,10 @@ SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
     WSADATA wsaData;
 
     if (WSAStartup(WINSOCK_VERSION, &wsaData)) {
-	printf("winsock not bi initialized !\n");
+	printf("Winsock не инициализирован!\n");
 	WSACleanup();
 	return NULL;
-    } else printf("Winsock initial OK !!!!\n");
+    } else printf("Winsock всё ОК!\n");
 
 #endif
     if ((serv = (SST *) malloc(sizeof (SST))) != NULL) {
@@ -108,9 +108,9 @@ void FinitServer(SST *serv) {
 #ifdef WIN32
 
     if (WSACleanup())
-	printf("Error Cleapir\n");
+	printf("Чот ничистицца...\n");
     else
-	printf("Cleapir Good !!!!!\n");
+	printf("Зачищено!\n");
 
 #endif
 }
@@ -254,12 +254,12 @@ int Listen(SST *serv, char *host, char *port) {
 	    }
 
 	    if (bind(serv->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1)
-		break; /* Success */
+		break; //Всё ОК
 
 	    closesocket(serv->sock);
 	}
 
-	if (tservinfo == NULL) { /* No address succeeded */
+	if (tservinfo == NULL) { //А адресов то небыло
 	    if (serv->OnErr)serv->OnErr(serv, -2);
 	    return -2;
 	} else if (listen(serv->sock, 16) < 0) {
@@ -281,7 +281,6 @@ int Listen(SST *serv, char *host, char *port) {
 	    serv->sock = 0;
 	}
 
-	//	MainAccepto(serv);
     }
     return 0;
 }

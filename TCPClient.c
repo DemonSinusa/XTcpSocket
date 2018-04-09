@@ -33,10 +33,10 @@ SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
     WSADATA wsaData;
 
     if (WSAStartup(WINSOCK_VERSION, &wsaData)) {
-	printf("winsock not bi initialized !\n");
+	printf("Winsock не инициализирован!\n");
 	WSACleanup();
 	return NULL;
-    } else printf("Winsock initial OK !!!!\n");
+    } else printf("Winsock всё ОК!\n");
 
 #endif
 
@@ -65,9 +65,9 @@ void FinitClient(SCT *cl) {
 #ifdef WIN32
 
     if (WSACleanup())
-	printf("Error Cleapir\n");
+	printf("Чот ничистицца...\n");
     else
-	printf("Cleapir Good !!!!!\n");
+	printf("Зачищено!\n");
 
 #endif
 
@@ -155,11 +155,11 @@ int Connect(SCT *cl, char *host, char *port) {
 		continue;
 
 	    if (connect(cl->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1)
-		break; /* Success */
+		break; // Зашибись
 
 	    closesocket(cl->sock);
 	}
-	if (tservinfo == NULL) { /* No address succeeded */
+	if (tservinfo == NULL) { // А адрес так и не вышел)
 	    if (cl->OnErr)cl->OnErr(cl, -2);
 	    return -2;
 	}
