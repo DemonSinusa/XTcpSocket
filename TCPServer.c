@@ -68,6 +68,17 @@ void DelPlease(LCL *it) {
 
 SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
     SST *serv = NULL;
+#ifdef WIN32
+
+    WSADATA wsaData;
+
+    if (WSAStartup(WINSOCK_VERSION, &wsaData)) {
+	printf("winsock not bi initialized !\n");
+	WSACleanup();
+	return NULL;
+    } else printf("Winsock initial OK !!!!\n");
+
+#endif
     if ((serv = (SST *) malloc(sizeof (SST))) != NULL) {
 	memset(serv, 0, sizeof (SST));
 
@@ -86,12 +97,22 @@ void FinitServer(SST *serv) {
     if (serv) {
 	while (serv->first) {
 	    tmp = serv->first->next;
-	    close(serv->first->client);
+	    closesocket(serv->first->client);
 	    free(serv->first);
 	    serv->first = tmp;
 	}
+	closesocket(serv->sock);
 	free(serv);
     }
+
+#ifdef WIN32
+
+    if (WSACleanup())
+	printf("Error Cleapir\n");
+    else
+	printf("Cleapir Good !!!!!\n");
+
+#endif
 }
 
 int SetCallBacksS(SST *serv,
@@ -131,26 +152,22 @@ static void *MainReadero(void *data) {
     char *bin = (char *) malloc(it->buflen);
     int readl = 0, all = 0;
 
-    if (serv->OnConnected)serv->OnConnected(serv, it);
-    else if (serv->OnErr)serv->OnErr(serv, -20); //Важный кальбэк упущен.
-
     //MSG_WAITALL - чего ты ЖДЁЁЁЁшшш? ЧЕГО ты ждеЕЁЁёшш????!!!
     while ((readl = recv(it->client, &bin[all], it->buflen, 0)) >= 0) {
 	all += readl;
 	if (readl == 0 || readl < it->buflen) {
 	    if (serv->OnRead) {
 		if (serv->OnRead(serv, it, bin, all) != 0) {
-		    close(it->client);
+		    closesocket(it->client);
 		    if (serv->OnDisconnected)serv->OnDisconnected(serv, it);
 		    DelPlease(it);
 		    break;
-		} else {
-		    it->count.AllRead += it->count.PrevRead;
-		    it->count.PrevRead = all;
-		    serv->count.AllRead += serv->count.PrevRead;
-		    serv->count.PrevRead = all;
 		}
 	    }
+	    it->count.AllRead += it->count.PrevRead;
+	    it->count.PrevRead = all;
+	    serv->count.AllRead += serv->count.PrevRead;
+	    serv->count.PrevRead = all;
 	    all = 0;
 	}
 
@@ -158,13 +175,10 @@ static void *MainReadero(void *data) {
 
     }
 
+    free(bin);
+
     if (readl < 0 && errno != EINTR) {
 	if (serv->OnErr)serv->OnErr(serv, -100);
-    } else {
-	it->count.AllRead += it->count.PrevRead;
-	it->count.PrevRead = all;
-	serv->count.AllRead += serv->count.PrevRead;
-	serv->count.PrevRead = all;
     }
 
     pthread_exit(NULL);
@@ -196,6 +210,9 @@ static void *MainAccepto(void *data) {
 	temp->client = client;
 	temp->buflen = serv->bufftoclient;
 
+	if (serv->OnConnected)serv->OnConnected(serv, temp);
+	else if (serv->OnErr)serv->OnErr(serv, -20); //Важный кальбэк упущен.
+
 	pthread_attr_init(&tattr);
 	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
 	    if (serv->OnErr)serv->OnErr(serv, -30);
@@ -203,7 +220,7 @@ static void *MainAccepto(void *data) {
 
 	if (pthread_create(&temp->Rthread, NULL, MainReadero, temp) != 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -10);
-	    close(temp->client);
+	    closesocket(temp->client);
 	    if (serv->OnDisconnected)serv->OnDisconnected(serv, temp);
 	    DelPlease(temp);
 	}
@@ -239,7 +256,7 @@ int Listen(SST *serv, char *host, char *port) {
 	    if (bind(serv->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1)
 		break; /* Success */
 
-	    close(serv->sock);
+	    closesocket(serv->sock);
 	}
 
 	if (tservinfo == NULL) { /* No address succeeded */
@@ -247,7 +264,7 @@ int Listen(SST *serv, char *host, char *port) {
 	    return -2;
 	} else if (listen(serv->sock, 16) < 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -3);
-	    close(serv->sock);
+	    closesocket(serv->sock);
 	    serv->sock = 0;
 	    freeaddrinfo(servinfo);
 	    return -3;
@@ -260,7 +277,7 @@ int Listen(SST *serv, char *host, char *port) {
 	}
 	if ((status = pthread_create(&serv->treads.AcptThread, &tattr, MainAccepto, serv)) != 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -5);
-	    close(serv->sock);
+	    closesocket(serv->sock);
 	    serv->sock = 0;
 	}
 
@@ -304,7 +321,7 @@ int SendToClient(LCL *cl, char *buf, int len) {
 	}
 
     } else {
-	close(cl->client);
+	closesocket(cl->client);
 	DelPlease(cl);
     }
     return total;

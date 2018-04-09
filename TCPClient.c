@@ -27,6 +27,19 @@
 
 SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
     SCT *cl = NULL;
+
+#ifdef WIN32
+
+    WSADATA wsaData;
+
+    if (WSAStartup(WINSOCK_VERSION, &wsaData)) {
+	printf("winsock not bi initialized !\n");
+	WSACleanup();
+	return NULL;
+    } else printf("Winsock initial OK !!!!\n");
+
+#endif
+
     if ((cl = (SCT *) malloc(sizeof (SCT))) != NULL) {
 	memset(cl, 0, sizeof (SCT));
 
@@ -45,9 +58,19 @@ void FinitClient(SCT *cl) {
 	//При потоковости рубануть сперва их
 	if (cl->treads.Wthread)pthread_cancel(cl->treads.Wthread);
 	if (cl->treads.Rthread)pthread_cancel(cl->treads.Rthread);
-	if (cl->sock > 0)close(cl->sock);
+	if (cl->sock > 0)closesocket(cl->sock);
 	free(cl);
     }
+
+#ifdef WIN32
+
+    if (WSACleanup())
+	printf("Error Cleapir\n");
+    else
+	printf("Cleapir Good !!!!!\n");
+
+#endif
+
 }
 
 int SetCallBacksC(SCT *cl,
@@ -78,35 +101,32 @@ int SetCallBacksC(SCT *cl,
 static void *ReadThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
     char *bin = (char *) malloc(cl->buflen);
-    int readl = 0, all = 0, error = 0;
+    int readl = 0, all = 0;
     //MSG_WAITALL
     while ((readl = recv(cl->sock, &bin[all], cl->buflen, 0)) >= 0) {
 	all += readl;
-	if (readl == 0 || readl < cl->buflen)
+	if (readl == 0 || readl < cl->buflen) {
 	    if (cl->OnRead) {
 		if (cl->OnRead(cl, bin, all) != 0) {
-		    close(cl->sock);
+		    closesocket(cl->sock);
 		    if (cl->OnDisconnected)cl->OnDisconnected(cl);
 		    cl->sock = 0;
 		    break;
-		} else {
-		    cl->count.AllRead += cl->count.PrevRead;
-		    cl->count.PrevRead = all;
-		    all = 0;
 		}
 	    }
+	    cl->count.AllRead += cl->count.PrevRead;
+	    cl->count.PrevRead = all;
+	    all = 0;
+	}
 
 	bin = realloc(bin, all + cl->buflen);
 
     }
+    free(bin);
 
     if (readl < 0 && errno != EINTR) {
 	if (cl->OnErr)cl->OnErr(cl, -30);
-    } else {
-	cl->count.AllRead += cl->count.PrevRead;
-	cl->count.PrevRead = all;
     }
-
     pthread_exit(NULL);
 }
 
@@ -137,7 +157,7 @@ int Connect(SCT *cl, char *host, char *port) {
 	    if (connect(cl->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1)
 		break; /* Success */
 
-	    close(cl->sock);
+	    closesocket(cl->sock);
 	}
 	if (tservinfo == NULL) { /* No address succeeded */
 	    if (cl->OnErr)cl->OnErr(cl, -2);
@@ -151,7 +171,7 @@ int Connect(SCT *cl, char *host, char *port) {
 	}
 
 	if (pthread_create(&cl->treads.Rthread, &tattr, ReadThreadMain, cl) != 0) {
-	    close(cl->sock);
+	    closesocket(cl->sock);
 	    if (cl->OnDisconnected)cl->OnDisconnected(cl);
 	    cl->sock = 0;
 	    if (cl->OnErr)cl->OnErr(cl, -3);
@@ -193,7 +213,7 @@ int Send(SCT *cl, char *buf, int len) {
 	}
 
     } else {
-	close(cl->sock);
+	closesocket(cl->sock);
 	if (cl->OnDisconnected)cl->OnDisconnected(cl);
 	cl->sock = 0;
     }

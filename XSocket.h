@@ -66,8 +66,15 @@ typedef struct _sockserver_type_ {
 extern "C" {
 #endif
 
+#ifndef WIN32
+#define closesocket  close
+#else
+#include "winsock2.h"
+#include "windows.h"
 
+    const int WINSOCK_VERSION = 0x202;
 
+#endif
 
 #ifdef __cplusplus
 }
