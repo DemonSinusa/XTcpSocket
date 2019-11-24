@@ -61,6 +61,7 @@ int OnReadC(SCT *cl, char *buf, int len) {
 
 int OnWriteC(SCT *cl, int len) {
     printf("Серверу от №%d отправлено:%dБайт\n", cl->sock, cl->count.PrevWrite);
+    return 0;
 }
 
 void OnErrC(SCT *cl, int err) {
@@ -90,6 +91,7 @@ int OnReadS(SST *serv, LCL *cl, char *buf, int len) {
 
 int OnWriteS(SST *serv, LCL *cl, int len) {
     printf("Клиенту №%d записано-%dБайт\n", cl->client, cl->count.PrevWrite);
+    return 0;
 }
 
 void OnErrS(SST *serv, int err) {
@@ -119,7 +121,7 @@ int main(int argc, char** argv) {
     if (!Connect(FreeNeutron, logalhst, zeport)) {
 	globalclient++;
 	printf("Успешно подрублено.");
-	char *f = "GET / HTTP/1.1 Host: ya.ru";
+	char *f = (char *)"GET / HTTP/1.1 Host: ya.ru";
 	printf("Посылка->%s\n", f);
 	Send(FreeNeutron, f, strlen(f));
     }
