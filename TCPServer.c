@@ -177,10 +177,6 @@ static void *MainReadero(void *data) {
 
     free(bin);
 
-    if (readl < 0 && errno != EINTR) {
-	if (serv->OnErr)serv->OnErr(serv, -100);
-    }
-
     pthread_exit(NULL);
 }
 
@@ -240,7 +236,7 @@ int Listen(SST *serv, char *host, char *port) {
     else hostint = host;
 
     if ((status = getaddrinfo(hostint, port, &serv->hints, &servinfo)) != 0) {
-	if (serv->OnErr)serv->OnErr(serv, -1);
+	if (serv->OnErr)serv->OnErr(serv, -10);
 	return -1;
     } else {
 	for (tservinfo = servinfo; tservinfo != NULL; tservinfo = tservinfo->ai_next) {
@@ -250,7 +246,7 @@ int Listen(SST *serv, char *host, char *port) {
 		continue;
 
 	    if (setsockopt(serv->sock, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof (one)) < 0) {
-		if (serv->OnErr)serv->OnErr(serv, -4);
+		if (serv->OnErr)serv->OnErr(serv, -30);
 	    }
 
 	    if (bind(serv->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1)
@@ -260,10 +256,10 @@ int Listen(SST *serv, char *host, char *port) {
 	}
 
 	if (tservinfo == NULL) { //А адресов то небыло
-	    if (serv->OnErr)serv->OnErr(serv, -2);
+	    if (serv->OnErr)serv->OnErr(serv, -20);
 	    return -2;
 	} else if (listen(serv->sock, 16) < 0) {
-	    if (serv->OnErr)serv->OnErr(serv, -3);
+	    if (serv->OnErr)serv->OnErr(serv, -40);
 	    closesocket(serv->sock);
 	    serv->sock = 0;
 	    freeaddrinfo(servinfo);
@@ -273,10 +269,10 @@ int Listen(SST *serv, char *host, char *port) {
 
 	pthread_attr_init(&tattr);
 	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (serv->OnErr)serv->OnErr(serv, -6);
+	    if (serv->OnErr)serv->OnErr(serv, -50);
 	}
 	if ((status = pthread_create(&serv->treads.AcptThread, &tattr, MainAccepto, serv)) != 0) {
-	    if (serv->OnErr)serv->OnErr(serv, -5);
+	    if (serv->OnErr)serv->OnErr(serv, -60);
 	    closesocket(serv->sock);
 	    serv->sock = 0;
 	}
@@ -296,7 +292,7 @@ int SendToClient(LCL *cl, char *buf, int len) {
     while (total < len && n != -1) {
 	n = send(cl->client, &buf[total], bytesleft, 0);
 	if (n == -1) {
-	    if (serv->OnErr)serv->OnErr(serv, -1000);
+	    if (serv->OnErr)serv->OnErr(serv, -100);
 	    break;
 	}
 	total += n;
@@ -312,11 +308,11 @@ int SendToClient(LCL *cl, char *buf, int len) {
 
 	pthread_attr_init(&tattr);
 	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (serv->OnErr)serv->OnErr(serv, -3000);
+	    if (serv->OnErr)serv->OnErr(serv, -50);
 	}
 
 	if (pthread_create(&cl->Wthread, &tattr, MainWritero, cl) != 0) {
-	    if (serv->OnErr)serv->OnErr(serv, -2000);
+	    if (serv->OnErr)serv->OnErr(serv, -60);
 	}
 
     } else {

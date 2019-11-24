@@ -73,36 +73,11 @@ void FinitClient(SCT *cl) {
 
 }
 
-int SetCallBacksC(SCT *cl,
-	int (*OnRead)(SCT *cl, char *buf, int len),
-	int (*OnWrite)(SCT *cl, int len),
-	void (*OnDisconnected)(SCT *cl),
-	void (*OnErr)(SCT *cl, int err)) {
-    int count = 0;
-    if (OnRead) {
-	cl->OnRead = OnRead;
-	count++;
-    } else cl->OnRead = NULL;
-    if (OnWrite) {
-	cl->OnWrite = OnWrite;
-	count++;
-    } else cl->OnWrite = NULL;
-    if (OnDisconnected) {
-	cl->OnDisconnected = OnDisconnected;
-	count++;
-    } else cl->OnDisconnected = NULL;
-    if (OnErr) {
-	cl->OnErr = OnErr;
-	count++;
-    } else cl->OnErr = NULL;
-    return count;
-}
-
 static void *ReadThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
     char *bin = (char *) malloc(cl->buflen);
     int readl = 0, all = 0;
-    //MSG_WAITALL
+
     while ((readl = recv(cl->sock, &bin[all], cl->buflen, 0)) >= 0) {
 	all += readl;
 	if (readl == 0 || readl < cl->buflen) {
@@ -124,11 +99,49 @@ static void *ReadThreadMain(void *clntSock) {
     }
     free(bin);
 
-    if (readl < 0 && errno != EINTR) {
-	if (cl->OnErr)cl->OnErr(cl, -30);
-    }
     pthread_exit(NULL);
 }
+
+int SetCallBacksC(SCT *cl,
+	int (*OnRead)(SCT *cl, char *buf, int len),
+	int (*OnWrite)(SCT *cl, int len),
+	void (*OnDisconnected)(SCT *cl),
+	void (*OnErr)(SCT *cl, int err)) {
+    int count = 0;
+    int one = 0;
+    pthread_attr_t tattr;
+
+    if (OnRead) {
+		pthread_attr_init(&tattr);
+			if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
+				if (cl->OnErr)cl->OnErr(cl, -50);
+			}
+
+	cl->OnRead = OnRead;
+
+		if (pthread_create(&cl->treads.Rthread, &tattr, ReadThreadMain, cl) != 0) {
+			closesocket(cl->sock);
+			if (cl->OnDisconnected)cl->OnDisconnected(cl);
+			cl->sock = 0;
+			if (cl->OnErr)cl->OnErr(cl, -60);
+	}
+	count++;
+    } else cl->OnRead = NULL;
+    if (OnWrite) {
+	cl->OnWrite = OnWrite;
+	count++;
+    } else cl->OnWrite = NULL;
+    if (OnDisconnected) {
+	cl->OnDisconnected = OnDisconnected;
+	count++;
+    } else cl->OnDisconnected = NULL;
+    if (OnErr) {
+	cl->OnErr = OnErr;
+	count++;
+    } else cl->OnErr = NULL;
+    return count;
+}
+
 
 static void *WriteThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
@@ -140,11 +153,8 @@ int Connect(SCT *cl, char *host, char *port) {
     int status;
     struct addrinfo *servinfo = NULL, *tservinfo = NULL; // указатель на результаты вызова
 
-    int one = 0;
-    pthread_attr_t tattr;
-
     if ((status = getaddrinfo(host, port, &cl->hints, &servinfo)) != 0) {
-	if (cl->OnErr)cl->OnErr(cl, -1);
+	if (cl->OnErr)cl->OnErr(cl, -10);
 	return -1;
     } else {
 	//Можно продолжать-???:!
@@ -160,22 +170,14 @@ int Connect(SCT *cl, char *host, char *port) {
 	    closesocket(cl->sock);
 	}
 	if (tservinfo == NULL) { // А адрес так и не вышел)
-	    if (cl->OnErr)cl->OnErr(cl, -2);
+	    if (cl->OnErr)cl->OnErr(cl, -20);
 	    return -2;
 	}
 	freeaddrinfo(servinfo);
 
-	pthread_attr_init(&tattr);
-	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (cl->OnErr)cl->OnErr(cl, -4);
-	}
 
-	if (pthread_create(&cl->treads.Rthread, &tattr, ReadThreadMain, cl) != 0) {
-	    closesocket(cl->sock);
-	    if (cl->OnDisconnected)cl->OnDisconnected(cl);
-	    cl->sock = 0;
-	    if (cl->OnErr)cl->OnErr(cl, -3);
-	}
+
+
     }
     return 0;
 
@@ -205,11 +207,11 @@ int Send(SCT *cl, char *buf, int len) {
 
 	pthread_attr_init(&tattr);
 	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (cl->OnErr)cl->OnErr(cl, -300);
+	    if (cl->OnErr)cl->OnErr(cl, -40);
 	}
 
 	if (pthread_create(&cl->treads.Wthread, &tattr, WriteThreadMain, cl) != 0) {
-	    if (cl->OnErr)cl->OnErr(cl, -200);
+	    if (cl->OnErr)cl->OnErr(cl, -50);
 	}
 
     } else {
