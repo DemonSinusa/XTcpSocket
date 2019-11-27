@@ -6,10 +6,10 @@
 		<Option pch_mode="2" />
 		<Option compiler="gcc" />
 		<Build>
-			<Target title="Debug">
-				<Option output="../libs/xtcpsock" prefix_auto="1" extension_auto="1" />
+			<Target title="D_alib">
+				<Option output="../libs/xtcpsock_d" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
-				<Option object_output="dist/build/Debug/GNU-Linux" />
+				<Option object_output="Objects/Debug" />
 				<Option type="2" />
 				<Option compiler="gcc" />
 				<Compiler>
@@ -17,10 +17,10 @@
 					<Add option="-DDEBUG" />
 				</Compiler>
 			</Target>
-			<Target title="Release">
+			<Target title="alib">
 				<Option output="../libs/xtcpsock" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="" />
-				<Option object_output="dist/build/Release/GNU-Linux" />
+				<Option object_output="Objects/Release" />
 				<Option type="2" />
 				<Option compiler="gcc" />
 				<Compiler>
@@ -30,15 +30,36 @@
 					<Add option="-s" />
 				</Linker>
 			</Target>
+			<Target title="lib">
+				<Option output="../libs/xtcpsock" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="../libs" />
+				<Option object_output="Objects/Release" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+			<Target title="D_lib">
+				<Option output="../libs/xtcpsock_d" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="../libs" />
+				<Option object_output="Objects/Debug" />
+				<Option type="3" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-g" />
+					<Add option="-DDEBUG" />
+				</Compiler>
+			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add option="-std=c++11" />
-			<Add option="-m64" />
 			<Add directory="include" />
 		</Compiler>
 		<Linker>
-			<Add option="-m64" />
 			<Add library="pthread" />
 		</Linker>
 		<Unit filename="TCPClient.c">
