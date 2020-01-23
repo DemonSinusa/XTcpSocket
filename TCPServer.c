@@ -6,22 +6,27 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 
 #include <sys/types.h>
-#include <sys/select.h>
-#include <sys/time.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <WinSock2.h>
+#include <Ws2tcpip.h>
+#else
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
-
-#include <sys/types.h>
 #include <sys/socket.h>
+#endif
+
+#include "Threads.h"
 
 #include "TCPServer.h"
 
@@ -73,10 +78,10 @@ SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
     WSADATA wsaData;
 
     if (WSAStartup(WINSOCK_VERSION, &wsaData)) {
-	printf("Winsock не инициализирован!\n");
+	sprintf(stderr,"Winsock не инициализирован!\n");
 	WSACleanup();
 	return NULL;
-    } else printf("Winsock всё ОК!\n");
+    } else fprintf(stdout,"Winsock всё ОК!\n");
 
 #endif
     if ((serv = (SST *) malloc(sizeof (SST))) != NULL) {
@@ -108,9 +113,9 @@ void FinitServer(SST *serv) {
 #ifdef WIN32
 
     if (WSACleanup())
-	printf("Чот ничистицца...\n");
+	fprintf(stderr,"Чот ничистицца...\n");
     else
-	printf("Зачищено!\n");
+	fprintf(stdout,"Зачищено!\n");
 
 #endif
 }
@@ -145,7 +150,7 @@ int SetCallBacksS(SST *serv,
     return count;
 }
 
-static void *MainReadero(void *data) {
+static int MainReadero(void *data) {
     LCL *it = (LCL *) data;
     SST *serv = (SST *) it->ServST;
 
@@ -177,24 +182,24 @@ static void *MainReadero(void *data) {
 
     free(bin);
 
-    pthread_exit(NULL);
+    _wCrossThreadExit(0);
+    return 0;
 }
 
-static void *MainWritero(void *data) {
+static int MainWritero(void *data) {
     LCL *it = (LCL *) data;
     SST *serv = (SST *) it->ServST;
 
     if (serv->OnWrite)serv->OnWrite(serv, it, it->count.PrevWrite);
 
-    pthread_exit(NULL);
+    _wCrossThreadExit(0);
+    return 0;
 }
 
-static void *MainAccepto(void *data) {
+static int MainAccepto(void *data) {
     SST *serv = (SST *) data;
     LCL *temp = NULL;
     int client = 0;
-    int one = 0;
-    pthread_attr_t tattr;
 
     while ((client = accept(serv->sock, serv->hints.ai_addr, &serv->hints.ai_addrlen)) > 0) {
 
@@ -209,12 +214,8 @@ static void *MainAccepto(void *data) {
 	if (serv->OnConnected)serv->OnConnected(serv, temp);
 	else if (serv->OnErr)serv->OnErr(serv, -20); //Важный кальбэк упущен.
 
-	pthread_attr_init(&tattr);
-	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (serv->OnErr)serv->OnErr(serv, -30);
-	}
 
-	if (pthread_create(&temp->Rthread, NULL, MainReadero, temp) != 0) {
+	if (_wCrossThreadCreate(&temp->Treadrs.Rthread, MainReadero, temp) != 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -10);
 	    closesocket(temp->client);
 	    if (serv->OnDisconnected)serv->OnDisconnected(serv, temp);
@@ -222,18 +223,19 @@ static void *MainAccepto(void *data) {
 	}
 
     }
-    pthread_exit(NULL);
+    _wCrossThreadExit(0);
+    return 0;
 }
 
 int Listen(SST *serv, char *host, char *port) {
     int status;
     int one = 1;
-    pthread_attr_t tattr;
     char *hostint = NULL;
     struct addrinfo *servinfo = NULL, *tservinfo = NULL; // указатель на результаты вызова
 
-    if (host && strlen(host) < 3)hostint = (char *) "localhost";
-    else hostint = host;
+    if(host&&strlen(host) > 3){
+		hostint=host;
+    }else hostint =(char *)"localhost";
 
     if ((status = getaddrinfo(hostint, port, &serv->hints, &servinfo)) != 0) {
 	if (serv->OnErr)serv->OnErr(serv, -10);
@@ -267,11 +269,7 @@ int Listen(SST *serv, char *host, char *port) {
 	}
 	freeaddrinfo(servinfo);
 
-	pthread_attr_init(&tattr);
-	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (serv->OnErr)serv->OnErr(serv, -50);
-	}
-	if ((status = pthread_create(&serv->treads.AcptThread, &tattr, MainAccepto, serv)) != 0) {
+	if ((status = _wCrossThreadCreate(&serv->treads.AcptThread,MainAccepto, serv)) != 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -60);
 	    closesocket(serv->sock);
 	    serv->sock = 0;
@@ -286,8 +284,6 @@ int SendToClient(LCL *cl, char *buf, int len) {
     int bytesleft = len; // Сколько нужно
     int n = 0;
     SST *serv = (SST *) cl->ServST;
-    int one = 0;
-    pthread_attr_t tattr;
 
     while (total < len && n != -1) {
 	n = send(cl->client, &buf[total], bytesleft, 0);
@@ -306,12 +302,8 @@ int SendToClient(LCL *cl, char *buf, int len) {
 	serv->count.AllWrite += cl->count.PrevWrite;
 	serv->count.PrevWrite = cl->count.PrevWrite;
 
-	pthread_attr_init(&tattr);
-	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (serv->OnErr)serv->OnErr(serv, -50);
-	}
 
-	if (pthread_create(&cl->Wthread, &tattr, MainWritero, cl) != 0) {
+	if (_wCrossThreadCreate(&cl->Treadrs.Wthread,MainWritero, cl) != 0) {
 	    if (serv->OnErr)serv->OnErr(serv, -60);
 	}
 

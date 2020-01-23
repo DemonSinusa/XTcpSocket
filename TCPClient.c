@@ -6,22 +6,27 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 
 #include <sys/types.h>
-#include <sys/select.h>
-#include <sys/time.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <WinSock2.h>
+#include <Ws2tcpip.h>
+#else
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include <sys/time.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
-
-#include <sys/types.h>
 #include <sys/socket.h>
+#endif
+
+#include "Threads.h"
 
 #include "TCPClient.h"
 
@@ -33,10 +38,10 @@ SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
     WSADATA wsaData;
 
     if (WSAStartup(WINSOCK_VERSION, &wsaData)) {
-	printf("Winsock не инициализирован!\n");
+	fprintf(stderr,"Winsock не инициализирован!\n");
 	WSACleanup();
 	return NULL;
-    } else printf("Winsock всё ОК!\n");
+    } else fprintf(stdout,"Winsock всё ОК!\n");
 
 #endif
 
@@ -56,8 +61,8 @@ SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
 void FinitClient(SCT *cl) {
     if (cl) {
 	//При потоковости рубануть сперва их
-	if (cl->treads.Wthread)pthread_cancel(cl->treads.Wthread);
-	if (cl->treads.Rthread)pthread_cancel(cl->treads.Rthread);
+	if (cl->Treadrs.Wthread.thread)_wCrossThreadClose(&cl->Treadrs.Wthread);
+	if (cl->Treadrs.Rthread.thread)_wCrossThreadClose(&cl->Treadrs.Rthread);
 	if (cl->sock > 0)closesocket(cl->sock);
 	free(cl);
     }
@@ -65,15 +70,15 @@ void FinitClient(SCT *cl) {
 #ifdef WIN32
 
     if (WSACleanup())
-	printf("Чот ничистицца...\n");
+	fprintf(stderr,"Чот ничистицца...\n");
     else
-	printf("Зачищено!\n");
+	fprintf(stdout,"Зачищено!\n");
 
 #endif
 
 }
 
-static void *ReadThreadMain(void *clntSock) {
+static int ReadThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
     char *bin = (char *) malloc(cl->buflen);
     int readl = 0, all = 0;
@@ -108,18 +113,13 @@ int SetCallBacksC(SCT *cl,
 	void (*OnDisconnected)(SCT *cl),
 	void (*OnErr)(SCT *cl, int err)) {
     int count = 0;
-    int one = 0;
-    pthread_attr_t tattr;
 
     if (OnRead) {
-		pthread_attr_init(&tattr);
-			if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-				if (cl->OnErr)cl->OnErr(cl, -50);
-			}
+    	if(cl->OnRead){
+	    	_wCrossThreadClose(&cl->Treadrs.Rthread);
+    	}else cl->OnRead = OnRead;
 
-	cl->OnRead = OnRead;
-
-		if (pthread_create(&cl->treads.Rthread, &tattr, ReadThreadMain, cl) != 0) {
+		if (_wCrossThreadCreate(&cl->Treadrs.Rthread, ReadThreadMain, cl) != 0) {
 			closesocket(cl->sock);
 			if (cl->OnDisconnected)cl->OnDisconnected(cl);
 			cl->sock = 0;
@@ -143,10 +143,11 @@ int SetCallBacksC(SCT *cl,
 }
 
 
-static void *WriteThreadMain(void *clntSock) {
+static int WriteThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
     if (cl->OnWrite)cl->OnWrite(cl, cl->count.PrevWrite);
-    pthread_exit(NULL);
+    _wCrossThreadExit(0);
+    return 0;
 }
 
 int Connect(SCT *cl, char *host, char *port) {
@@ -174,10 +175,6 @@ int Connect(SCT *cl, char *host, char *port) {
 	    return -2;
 	}
 	freeaddrinfo(servinfo);
-
-
-
-
     }
     return 0;
 
@@ -187,9 +184,6 @@ int Send(SCT *cl, char *buf, int len) {
     int total = 0; // Сколько уже
     int bytesleft = len; // Сколько нужно
     int n = 0;
-
-    int one = 0;
-    pthread_attr_t tattr;
 
     while (total < len && n != -1) {
 	n = send(cl->sock, &buf[total], bytesleft, 0);
@@ -205,12 +199,8 @@ int Send(SCT *cl, char *buf, int len) {
 	cl->count.AllWrite += cl->count.PrevWrite;
 	cl->count.PrevWrite = total;
 
-	pthread_attr_init(&tattr);
-	if ((one = pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED))) {
-	    if (cl->OnErr)cl->OnErr(cl, -40);
-	}
 
-	if (pthread_create(&cl->treads.Wthread, &tattr, WriteThreadMain, cl) != 0) {
+	if (_wCrossThreadCreate(&cl->Treadrs.Wthread, WriteThreadMain, cl) != 0) {
 	    if (cl->OnErr)cl->OnErr(cl, -50);
 	}
 

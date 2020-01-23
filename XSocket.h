@@ -20,15 +20,13 @@ typedef struct _counters_ {
 } Counts;
 
 typedef struct _thread_clnt_ {
-    pthread_t Rthread, Wthread;
-    //    pthread_t ErrThread;
+    CPT Rthread, Wthread;
 } TCT;
 
 typedef struct _sockclient_type_ {
     int sock, buflen;
-    //    struct sockaddr_in addr_info;
     struct addrinfo hints;
-    TCT treads;
+    TCT Treadrs;
     Counts count;
     int (*OnRead)(struct _sockclient_type_ *cl, char *buf, int len);
     int (*OnWrite)(struct _sockclient_type_ *cl, int len);
@@ -37,13 +35,12 @@ typedef struct _sockclient_type_ {
 } SCT;
 
 typedef struct _thread_srvt_ {
-    pthread_t AcptThread;
-    //    pthread_t ErrThread;
+    CPT AcptThread;
 } TST;
 
 typedef struct _sct_list_ {
     int client, buflen;
-    pthread_t Rthread, Wthread;
+    TCT Treadrs;
     Counts count;
     void *ServST;
     struct _sct_list_ *prev, *next;
@@ -68,12 +65,6 @@ extern "C" {
 
 #ifndef WIN32
 #define closesocket  close
-#else
-#include "winsock2.h"
-#include "windows.h"
-
-    const int WINSOCK_VERSION = 0x202;
-
 #endif
 
 #ifdef __cplusplus

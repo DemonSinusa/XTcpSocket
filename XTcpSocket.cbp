@@ -70,6 +70,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="TCPServer.h" />
+		<Unit filename="Threads.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="Threads.h" />
 		<Unit filename="XSocket.h" />
 		<Extensions>
 			<envvars />

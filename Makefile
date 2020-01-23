@@ -62,13 +62,13 @@ OBJDIR_D_LIB = Objects/Debug
 DEP_D_LIB = 
 OUT_D_LIB = ../libs/xtcpsock_d.so
 
-OBJ_D_ALIB = $(OBJDIR_D_ALIB)/TCPClient.o $(OBJDIR_D_ALIB)/TCPServer.o
+OBJ_D_ALIB = $(OBJDIR_D_ALIB)/TCPClient.o $(OBJDIR_D_ALIB)/TCPServer.o $(OBJDIR_D_ALIB)/Threads.o
 
-OBJ_ALIB = $(OBJDIR_ALIB)/TCPClient.o $(OBJDIR_ALIB)/TCPServer.o
+OBJ_ALIB = $(OBJDIR_ALIB)/TCPClient.o $(OBJDIR_ALIB)/TCPServer.o $(OBJDIR_ALIB)/Threads.o
 
-OBJ_LIB = $(OBJDIR_LIB)/TCPClient.o $(OBJDIR_LIB)/TCPServer.o
+OBJ_LIB = $(OBJDIR_LIB)/TCPClient.o $(OBJDIR_LIB)/TCPServer.o $(OBJDIR_LIB)/Threads.o
 
-OBJ_D_LIB = $(OBJDIR_D_LIB)/TCPClient.o $(OBJDIR_D_LIB)/TCPServer.o
+OBJ_D_LIB = $(OBJDIR_D_LIB)/TCPClient.o $(OBJDIR_D_LIB)/TCPServer.o $(OBJDIR_D_LIB)/Threads.o
 
 all: d_alib alib lib d_lib
 
@@ -90,6 +90,9 @@ $(OBJDIR_D_ALIB)/TCPClient.o: TCPClient.c
 
 $(OBJDIR_D_ALIB)/TCPServer.o: TCPServer.c
 	$(CC) $(CFLAGS_D_ALIB) $(INC_D_ALIB) -c TCPServer.c -o $(OBJDIR_D_ALIB)/TCPServer.o
+
+$(OBJDIR_D_ALIB)/Threads.o: Threads.c
+	$(CC) $(CFLAGS_D_ALIB) $(INC_D_ALIB) -c Threads.c -o $(OBJDIR_D_ALIB)/Threads.o
 
 clean_d_alib: 
 	rm -f $(OBJ_D_ALIB) $(OUT_D_ALIB)
@@ -113,6 +116,9 @@ $(OBJDIR_ALIB)/TCPClient.o: TCPClient.c
 $(OBJDIR_ALIB)/TCPServer.o: TCPServer.c
 	$(CC) $(CFLAGS_ALIB) $(INC_ALIB) -c TCPServer.c -o $(OBJDIR_ALIB)/TCPServer.o
 
+$(OBJDIR_ALIB)/Threads.o: Threads.c
+	$(CC) $(CFLAGS_ALIB) $(INC_ALIB) -c Threads.c -o $(OBJDIR_ALIB)/Threads.o
+
 clean_alib: 
 	rm -f $(OBJ_ALIB) $(OUT_ALIB)
 	rm -rf ../libs
@@ -135,6 +141,9 @@ $(OBJDIR_LIB)/TCPClient.o: TCPClient.c
 $(OBJDIR_LIB)/TCPServer.o: TCPServer.c
 	$(CC) $(CFLAGS_LIB) $(INC_LIB) -c TCPServer.c -o $(OBJDIR_LIB)/TCPServer.o
 
+$(OBJDIR_LIB)/Threads.o: Threads.c
+	$(CC) $(CFLAGS_LIB) $(INC_LIB) -c Threads.c -o $(OBJDIR_LIB)/Threads.o
+
 clean_lib: 
 	rm -f $(OBJ_LIB) $(OUT_LIB)
 	rm -rf ../libs
@@ -156,6 +165,9 @@ $(OBJDIR_D_LIB)/TCPClient.o: TCPClient.c
 
 $(OBJDIR_D_LIB)/TCPServer.o: TCPServer.c
 	$(CC) $(CFLAGS_D_LIB) $(INC_D_LIB) -c TCPServer.c -o $(OBJDIR_D_LIB)/TCPServer.o
+
+$(OBJDIR_D_LIB)/Threads.o: Threads.c
+	$(CC) $(CFLAGS_D_LIB) $(INC_D_LIB) -c Threads.c -o $(OBJDIR_D_LIB)/Threads.o
 
 clean_d_lib: 
 	rm -f $(OBJ_D_LIB) $(OUT_D_LIB)
