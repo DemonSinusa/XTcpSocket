@@ -1,2 +1,5 @@
-/build/
-/dist/
+/build/*
+/dist/*
+/Objects/*
+/Example/bin/*
+/Example/obj/*

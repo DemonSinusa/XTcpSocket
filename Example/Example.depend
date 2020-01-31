@@ -1,0 +1,38 @@
+# depslib dependency file v1.0
+1580474434 source:/home/anton/DATA~CODE/MyGitCross/XTcpSocket/Example/main.c
+	<stdio.h>
+	<stdlib.h>
+	<fcntl.h>
+	<errno.h>
+	<sys/types.h>
+	<string.h>
+	<WinSock2.h>
+	<Ws2tcpip.h>
+	<pthread.h>
+	<unistd.h>
+	<sys/select.h>
+	<sys/time.h>
+	<arpa/inet.h>
+	<netinet/in.h>
+	<netdb.h>
+	<sys/socket.h>
+	"Threads.h"
+	"TCPClient.h"
+	"TCPServer.h"
+
+1579812236 /home/anton/DATA~CODE/MyGitCross/XTcpSocket//Threads.h
+	"libexport.h"
+	<windows.h>
+	<pthread.h>
+	<signal.h>
+
+1561156236 /home/anton/DATA~CODE/MyGitCross/XTcpSocket//libexport.h
+
+1580403672 /home/anton/DATA~CODE/MyGitCross/XTcpSocket//TCPClient.h
+	"XSocket.h"
+
+1580473382 /home/anton/DATA~CODE/MyGitCross/XTcpSocket//XSocket.h
+
+1580473457 /home/anton/DATA~CODE/MyGitCross/XTcpSocket//TCPServer.h
+	"XSocket.h"
+

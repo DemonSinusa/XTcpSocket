@@ -28,34 +28,43 @@ typedef struct _sockclient_type_ {
     struct addrinfo hints;
     TCT Treadrs;
     Counts count;
+
+    void *ServST;
+
+    int (*Open)(struct _sockclient_type_ *cl, char *host, char *port);
+    int (*Read)(struct _sockclient_type_ *cl);
+    int (*Write)(struct _sockclient_type_ *cl,char *buf,int len);
+    void(*Close)(struct _sockclient_type_ *cl);
+
     int (*OnRead)(struct _sockclient_type_ *cl, char *buf, int len);
     int (*OnWrite)(struct _sockclient_type_ *cl, int len);
     void (*OnDisconnected)(struct _sockclient_type_ *cl);
     void (*OnErr)(struct _sockclient_type_ *cl, int err);
 } SCT;
 
+
+typedef struct _sct_list_ {
+    SCT *Client;
+    struct _sct_list_ *prev, *next;
+} LCL;
+
 typedef struct _thread_srvt_ {
     CPT AcptThread;
 } TST;
 
-typedef struct _sct_list_ {
-    int client, buflen;
-    TCT Treadrs;
-    Counts count;
-    void *ServST;
-    struct _sct_list_ *prev, *next;
-} LCL;
-
 typedef struct _sockserver_type_ {
     int sock, bufftoclient;
     struct addrinfo hints;
-    TST treads;
+    TST threads;
     Counts count;
-    void (*OnConnected)(struct _sockserver_type_ *s, LCL *client);
-    int (*OnRead)(struct _sockserver_type_ *s, LCL *cl, char *buf, int len);
-    int (*OnWrite)(struct _sockserver_type_ *s, LCL *cl, int len);
-    void (*OnDisconnected)(struct _sockserver_type_ *s, LCL *cl);
-    void (*OnErr)(struct _sockserver_type_ *s, int err);
+    int (*Listen)(struct _sockserver_type_ *s, char *host, char *port);
+    void (*Todeaf)(struct _sockserver_type_ *s);
+
+    void (*OnConnected)(struct _sockserver_type_ *s, SCT *client);
+    int (*OnRead)(struct _sockserver_type_ *s, SCT *cl, char *buf, int len);
+    int (*OnWrite)(struct _sockserver_type_ *s, SCT *cl, int len);
+    void (*OnDisconnected)(struct _sockserver_type_ *s, SCT *cl);
+    void (*OnErr)(struct _sockserver_type_ *s,SCT *cl, int err);
     LCL *first, *end;
 } SST;
 

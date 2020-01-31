@@ -30,9 +30,13 @@ extern "C" {
 	    void (*OnDisconnected)(SCT *cl),
 	    void (*OnErr)(SCT *cl, int err));
 
-    int Connect(SCT *cl, char *host, char *port);
+    int Open(SCT *cl, char *host, char *port);
+
+    int Start_Read(SCT *cl,int rbuflen);
 
     int Send(SCT *cl, char *buf, int len);
+
+    void Close(SCT *cl);
 
     void FinitClient(SCT *cl);
 

@@ -23,15 +23,16 @@ extern "C" {
     SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen);
 
     int SetCallBacksS(SST *serv,
-	    void (*OnConnected)(SST *serv, LCL *cl),
-	    int (*OnRead)(SST *serv, LCL *cl, char *buf, int len),
-	    int (*OnWrite)(SST *serv, LCL *cl, int len),
-	    void (*OnDisconnected)(SST *serv, LCL *cl),
-	    void (*OnErr)(SST *serv, int err));
+	    void (*OnConnected)(SST *serv, SCT *cl),
+	    int (*OnRead)(SST *serv, SCT *cl, char *buf, int len),
+	    int (*OnWrite)(SST *serv, SCT *cl, int len),
+	    void (*OnDisconnected)(SST *serv, SCT *cl),
+	    void (*OnErr)(SST *serv,SCT *cl, int err));
 
     int Listen(SST *, char *host, char *port);
+    void Todeaf(SST *serv);
 
-    int SendToClient(LCL *cl, char *buf, int len);
+    int SendToClient(SCT *cl, char *buf, int len);
 
     void FinitServer(SST *);
 

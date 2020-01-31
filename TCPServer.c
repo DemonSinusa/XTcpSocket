@@ -27,49 +27,117 @@
 #endif
 
 #include "Threads.h"
-
+#include "TCPClient.h"
 #include "TCPServer.h"
 
 //Работа со списком клиентов (++/--) только
-
-LCL *AddPlease(LCL *first) {
-    LCL *it = NULL;
-    if ((it = (LCL *) malloc(sizeof (LCL))) != NULL)
-	memset(it, 0, sizeof (LCL));
-
-    if (first) {
-	it->ServST = first->ServST;
-	if (first->next) {
-	    //в середину
-	    it->next = first->next;
-	    it->prev = first;
-	    first->next->prev = it;
-	    first->next = it;
-	} else {
-	    //в конец
-	    it->prev = first;
-	    first->next = it;
-	    ((SST *) first->ServST)->end = it;
+//Добавляем элемент следом от позиции to
+LCL *Add(SCT *item,LCL *to,SST *serv){
+	SCT *it=item;
+	LCL *poz=to,*it_s=NULL;
+	SST *s=serv;
+	if(it&&s){
+        if ((it_s = (LCL *)malloc(sizeof(LCL))) != NULL) {
+			memset(it_s, 0x00, sizeof(LCL));
+			it->ServST=s;
+			it_s->Client=it;
+            if(poz){
+				it_s->next=poz->next;
+				it_s->prev=poz;
+				if(poz->next)poz->next->prev=it_s;
+            }
+        }
 	}
-    }
-    return it;
+	return it_s;
 }
 
-void DelPlease(LCL *it) {
-    SST *s = (SST *) it->ServST;
-    if (s->first == it)s->first = it->next;
-    if (s->end == it)s->end = it->prev;
-
-    if (it->prev) {
-	it->prev->next = it->next;
+//Удаляем элемент по позиции возвращаем предидущий иначе последующий
+LCL *Del(LCL *item){
+	LCL *it=item,*ret=NULL;
+    if(it->next){
+    	it->next->prev=it->prev;
+		ret=it->next;
     }
-    if (it->next) {
-	it->next->prev = it->prev;
+    if(it->prev){
+		it->prev->next=it->next;
+		ret=it->prev;
     }
     free(it);
+    return ret;
 }
 
 //-----------------------------------------
+//Серверно клиентские кальбаки
+
+int cl_OnRead(SCT *cl, char *buf, int len){
+	SST *serv=(SST *)cl->ServST;
+	if(serv){
+	if(serv->OnRead)return serv->OnRead(serv,cl,buf,len);
+	else return 0;
+	}
+	return -1;
+}
+int cl_OnWrite(SCT *cl, int len){
+	SST *serv=(SST *)cl->ServST;
+	if(serv){
+	if(serv->OnWrite)return serv->OnWrite(serv,cl,len);
+	else return 0;
+	}
+	return -1;
+}
+void cl_OnDisconnected(SCT *cl){
+	SST *serv=(SST *)cl->ServST;
+	LCL *cur=NULL;
+	if(serv){
+	if(serv->OnDisconnected) serv->OnDisconnected(serv,cl);
+	if((cur=serv->first))do{
+		if(cur->Client==cl){
+			if(serv->first==cur)serv->first=serv->first->next;
+			if(serv->end==cur)serv->end=serv->end->prev;
+			FinitClient(cur->Client);
+            Del(cur);
+			break;
+		}
+	}while((cur=cur->next));
+	}
+}
+void cl_OnErr(SCT *cl, int err){
+	SST *serv=(SST *)cl->ServST;
+	if(serv){
+	if(serv->OnErr)serv->OnErr(serv,cl,err);
+	}
+}
+
+LCL *OnConnect(SST *serv,int sock){
+	SST *s=serv;
+	LCL *cur=NULL;
+	SCT *item=NULL;
+	if(serv&&sock>0){
+        if((item=InitClient(s->hints.ai_family,s->hints.ai_socktype,s->hints.ai_flags,s->hints.ai_protocol,s->bufftoclient))){
+        		item->sock=sock;
+
+        		if(serv->first){
+					if((cur=Add(item,s->end,s)))s->end=cur;
+					else FinitClient(item);
+        		}else{
+        			if((cur=Add(item,NULL,s)))s->first=s->end=cur;
+					else FinitClient(item);
+        		}
+        		//Кальбаки расставляем тут
+        		item->OnErr=cl_OnErr;
+        		item->OnDisconnected=cl_OnDisconnected;
+        		item->OnWrite=cl_OnWrite;
+        		item->OnRead=cl_OnRead;
+
+        		if(s->OnConnected)s->OnConnected(s,item);
+        		else if(s->OnErr)s->OnErr(s,NULL,-20);	//Важный кальбэк упущен.
+        }
+	}
+	return cur;
+}
+
+//-----------------------------
+
 
 SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
     SST *serv = NULL;
@@ -102,7 +170,7 @@ void FinitServer(SST *serv) {
     if (serv) {
 	while (serv->first) {
 	    tmp = serv->first->next;
-	    closesocket(serv->first->client);
+	    FinitClient(serv->first->Client);
 	    free(serv->first);
 	    serv->first = tmp;
 	}
@@ -121,11 +189,11 @@ void FinitServer(SST *serv) {
 }
 
 int SetCallBacksS(SST *serv,
-	void (*OnConnected)(SST *serv, LCL *cl),
-	int (*OnRead)(SST *serv, LCL *cl, char *buf, int len),
-	int (*OnWrite)(SST *serv, LCL *cl, int len),
-	void (*OnDisconnected)(SST *serv, LCL *cl),
-	void (*OnErr)(SST *serv, int err)) {
+	void (*OnConnected)(SST *serv, SCT *cl),
+	int (*OnRead)(SST *serv, SCT *cl, char *buf, int len),
+	int (*OnWrite)(SST *serv, SCT *cl, int len),
+	void (*OnDisconnected)(SST *serv, SCT *cl),
+	void (*OnErr)(SST *serv,SCT *cl, int err)) {
     int count = 0;
     if (OnConnected) {
 	serv->OnConnected = OnConnected;
@@ -150,86 +218,30 @@ int SetCallBacksS(SST *serv,
     return count;
 }
 
-static int MainReadero(void *data) {
-    LCL *it = (LCL *) data;
-    SST *serv = (SST *) it->ServST;
-
-    char *bin = (char *) malloc(it->buflen);
-    int readl = 0, all = 0;
-
-    //MSG_WAITALL - чего ты ЖДЁЁЁЁшшш? ЧЕГО ты ждеЕЁЁёшш????!!!
-    while ((readl = recv(it->client, &bin[all], it->buflen, 0)) >= 0) {
-	all += readl;
-	if (readl == 0 || readl < it->buflen) {
-	    if (serv->OnRead) {
-		if (serv->OnRead(serv, it, bin, all) != 0) {
-		    closesocket(it->client);
-		    if (serv->OnDisconnected)serv->OnDisconnected(serv, it);
-		    DelPlease(it);
-		    break;
-		}
-	    }
-	    it->count.AllRead += it->count.PrevRead;
-	    it->count.PrevRead = all;
-	    serv->count.AllRead += serv->count.PrevRead;
-	    serv->count.PrevRead = all;
-	    all = 0;
-	}
-
-	bin = realloc(bin, all + it->buflen);
-
-    }
-
-    free(bin);
-
-    _wCrossThreadExit(0);
-    return 0;
-}
-
-static int MainWritero(void *data) {
-    LCL *it = (LCL *) data;
-    SST *serv = (SST *) it->ServST;
-
-    if (serv->OnWrite)serv->OnWrite(serv, it, it->count.PrevWrite);
-
-    _wCrossThreadExit(0);
-    return 0;
-}
 
 static int MainAccepto(void *data) {
     SST *serv = (SST *) data;
     LCL *temp = NULL;
     int client = 0;
+    serv->hints.ai_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
+	memset(serv->hints.ai_addr, 0x00, sizeof(struct sockaddr));
+	serv->hints.ai_addrlen = sizeof(struct sockaddr);
 
     while ((client = accept(serv->sock, serv->hints.ai_addr, &serv->hints.ai_addrlen)) > 0) {
 
-	if (!serv->first) {
-	    serv->first = serv->end = temp = AddPlease(NULL);
-	    serv->first->ServST = serv;
-	} else temp = AddPlease(temp);
-
-	temp->client = client;
-	temp->buflen = serv->bufftoclient;
-
-	if (serv->OnConnected)serv->OnConnected(serv, temp);
-	else if (serv->OnErr)serv->OnErr(serv, -20); //Важный кальбэк упущен.
-
-
-	if (_wCrossThreadCreate(&temp->Treadrs.Rthread, MainReadero, temp) != 0) {
-	    if (serv->OnErr)serv->OnErr(serv, -10);
-	    closesocket(temp->client);
-	    if (serv->OnDisconnected)serv->OnDisconnected(serv, temp);
-	    DelPlease(temp);
+	if((temp=OnConnect(serv,client))){
+		temp->Client->Read(temp->Client);
 	}
 
     }
+    free(serv->hints.ai_addr);
     _wCrossThreadExit(0);
     return 0;
 }
 
 int Listen(SST *serv, char *host, char *port) {
-    int status;
-    int one = 1;
+    int status=0,retval=0;
+    int one = 1,Ok=0;
     char *hostint = NULL;
     struct addrinfo *servinfo = NULL, *tservinfo = NULL; // указатель на результаты вызова
 
@@ -238,7 +250,7 @@ int Listen(SST *serv, char *host, char *port) {
     }else hostint =(char *)"localhost";
 
     if ((status = getaddrinfo(hostint, port, &serv->hints, &servinfo)) != 0) {
-	if (serv->OnErr)serv->OnErr(serv, -10);
+	if (serv->OnErr)serv->OnErr(serv,NULL, -10);
 	return -1;
     } else {
 	for (tservinfo = servinfo; tservinfo != NULL; tservinfo = tservinfo->ai_next) {
@@ -248,69 +260,52 @@ int Listen(SST *serv, char *host, char *port) {
 		continue;
 
 	    if (setsockopt(serv->sock, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof (one)) < 0) {
-		if (serv->OnErr)serv->OnErr(serv, -30);
+		if (serv->OnErr)serv->OnErr(serv,NULL, -30);
 	    }
 
-	    if (bind(serv->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1)
-		break; //Всё ОК
+	    if (bind(serv->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1){
+			Ok=1;
+			break; //Всё ОК
+	    }
 
 	    closesocket(serv->sock);
-	}
-
-	if (tservinfo == NULL) { //А адресов то небыло
-	    if (serv->OnErr)serv->OnErr(serv, -20);
-	    return -2;
-	} else if (listen(serv->sock, 16) < 0) {
-	    if (serv->OnErr)serv->OnErr(serv, -40);
-	    closesocket(serv->sock);
-	    serv->sock = 0;
-	    freeaddrinfo(servinfo);
-	    return -3;
 	}
 	freeaddrinfo(servinfo);
 
-	if ((status = _wCrossThreadCreate(&serv->treads.AcptThread,MainAccepto, serv)) != 0) {
-	    if (serv->OnErr)serv->OnErr(serv, -60);
-	    closesocket(serv->sock);
+	if (Ok) { //Успешно забиндялись
+		if (listen(serv->sock, 16) < 0) {
+	    	if (serv->OnErr)serv->OnErr(serv,NULL, -40);
+	    		retval=-3;
+		}else{	//Все прошло успешно слушаем.
+			if ((status = _wCrossThreadCreate(&serv->threads.AcptThread,MainAccepto, serv)) != 0) {
+	    		if (serv->OnErr)serv->OnErr(serv,NULL, -60);
+	    		retval=-4;
+			}
+		}
+	} else{ //Не забиндились
+		 if (serv->OnErr)serv->OnErr(serv,NULL, -20);
+	    retval= -2;
+	}
+
+    }
+
+    if(retval<0){
+		closesocket(serv->sock);
 	    serv->sock = 0;
-	}
-
     }
-    return 0;
+
+    return retval;
 }
 
-int SendToClient(LCL *cl, char *buf, int len) {
-    int total = 0; // Сколько уже
-    int bytesleft = len; // Сколько нужно
-    int n = 0;
-    SST *serv = (SST *) cl->ServST;
-
-    while (total < len && n != -1) {
-	n = send(cl->client, &buf[total], bytesleft, 0);
-	if (n == -1) {
-	    if (serv->OnErr)serv->OnErr(serv, -100);
-	    break;
-	}
-	total += n;
-	bytesleft -= n;
-    }
-
-    if (n >= 0) {
-	cl->count.AllWrite += cl->count.PrevWrite;
-	cl->count.PrevWrite = total;
-
-	serv->count.AllWrite += cl->count.PrevWrite;
-	serv->count.PrevWrite = cl->count.PrevWrite;
-
-
-	if (_wCrossThreadCreate(&cl->Treadrs.Wthread,MainWritero, cl) != 0) {
-	    if (serv->OnErr)serv->OnErr(serv, -60);
-	}
-
-    } else {
-	closesocket(cl->client);
-	DelPlease(cl);
-    }
-    return total;
-
+void Todeaf(SST *serv){
+	_wCrossThreadClose(&serv->threads.AcptThread);
+	closesocket(serv->sock);
+	serv->sock = 0;
 }
+
+
+int SendToClient(SCT *cl, char *buf, int len) {
+    return cl->Write(cl,buf,len);
+}
+
+

@@ -30,6 +30,128 @@
 
 #include "TCPClient.h"
 
+static int ReadThreadMain(void *clntSock) {
+    SCT *cl = (SCT *) clntSock;
+    char *bin = (char *)malloc(cl->buflen);
+    int readl = 0, all = 0;
+
+
+    while(1){
+
+		    readl = recv(cl->sock, &bin[all], cl->buflen, 0);
+
+		    if(readl>=0){
+				all+=readl;
+				if(readl==0||readl<cl->buflen){		//Признак конца потока данных
+					cl->count.PrevRead=all;
+					cl->count.AllRead+=cl->count.PrevRead;
+					if(cl->OnRead){
+                        if(cl->OnRead(cl,bin,all)!=0){
+                            cl->Close(cl);
+                            break;
+                        }
+					}
+					if(all<=cl->buflen){	//Новое значение реаллока должно быть >< предидущего
+                    	free(bin);
+                    	bin=NULL;
+					}
+					all = 0;
+				}
+		    }else{						//Ошибка чтения сокета;
+		    	if (cl->OnErr)cl->OnErr(cl, -101);
+		    	cl->Close(cl);
+		    	break;
+		    }
+		    bin=realloc(bin,all+cl->buflen);
+    }
+
+    free(bin);
+
+    return _wCrossThreadExit(0);
+}
+
+static int WriteThreadMain(void *clntSock) {
+    SCT *cl = (SCT *) clntSock;
+    if (cl->OnWrite)cl->OnWrite(cl, cl->count.PrevWrite);
+    _wCrossThreadExit(0);
+    return 0;
+}
+
+int read_client(SCT *cl){
+	if (_wCrossThreadCreate(&cl->Treadrs.Rthread, ReadThreadMain, cl) != 0) {
+			if (cl->OnErr)cl->OnErr(cl, -60);
+		return 0;
+	}else return 1;
+}
+
+int write_client(SCT *cl,char *buf,int len){
+	int total = 0; // Сколько уже
+    int bytesleft = len; // Сколько нужно
+    int sendl=0;
+
+    while(bytesleft){
+		    sendl = send(cl->sock, &buf[total], bytesleft, 0);
+		    if(sendl>=0){				//Нормальный режим передачи
+				total += sendl;
+				bytesleft -= sendl;
+		    }else{						//Ошибка
+		    	if (cl->OnErr)cl->OnErr(cl, -100);
+		    	cl->Close(cl);
+		    	break;
+		    }
+    }
+    if(bytesleft==0){
+    	cl->count.PrevWrite=total;
+		cl->count.AllWrite+=cl->count.PrevWrite;
+	    if (_wCrossThreadCreate(&cl->Treadrs.Wthread, WriteThreadMain, cl) != 0) {
+	    if (cl->OnErr)cl->OnErr(cl, -50);
+	}
+    }else total=-1;
+
+    return total;
+
+}
+
+int open_client(SCT *cl, char *host, char *port){
+	int status=0,Ok=0;
+    struct addrinfo *clientinfo = NULL, *tclientinfo = NULL; // указатель на результаты вызова
+
+    if ((status = getaddrinfo(host, port, &cl->hints, &clientinfo)) != 0) {
+	if (cl->OnErr)cl->OnErr(cl, -10);
+	return -1;
+    } else {
+	//Можно продолжать-???:!
+	for (tclientinfo = clientinfo; tclientinfo != NULL; tclientinfo = tclientinfo->ai_next) {
+	    cl->sock = socket(tclientinfo->ai_family, tclientinfo->ai_socktype,tclientinfo->ai_protocol);
+	    if (cl->sock == -1)
+		continue;
+
+	    if (connect(cl->sock, tclientinfo->ai_addr, tclientinfo->ai_addrlen) != -1){
+			Ok=1;
+			break; // Зашибись
+	    }
+
+	    closesocket(cl->sock);
+	}
+	freeaddrinfo(clientinfo);
+
+	if (!Ok) { // А адрес так и не вышел)
+	    if (cl->OnErr)cl->OnErr(cl, -20);
+	    return -2;
+	}
+
+    }
+	return 0;
+}
+
+void close_client(SCT *cl){
+	if(cl){
+	closesocket(cl->sock);
+	if (cl->OnDisconnected)cl->OnDisconnected(cl);
+	cl->sock = 0;
+	}
+}
+
 SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
     SCT *cl = NULL;
 
@@ -46,7 +168,12 @@ SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
 #endif
 
     if ((cl = (SCT *) malloc(sizeof (SCT))) != NULL) {
-	memset(cl, 0, sizeof (SCT));
+	memset(cl, 0x00, sizeof (SCT));
+
+	cl->Close=close_client;
+	cl->Read=read_client;
+	cl->Write=write_client;
+	cl->Open=open_client;
 
 	cl->hints.ai_family = domain;
 	cl->hints.ai_socktype = type;
@@ -66,7 +193,6 @@ void FinitClient(SCT *cl) {
 	if (cl->sock > 0)closesocket(cl->sock);
 	free(cl);
     }
-
 #ifdef WIN32
 
     if (WSACleanup())
@@ -78,34 +204,7 @@ void FinitClient(SCT *cl) {
 
 }
 
-static int ReadThreadMain(void *clntSock) {
-    SCT *cl = (SCT *) clntSock;
-    char *bin = (char *) malloc(cl->buflen);
-    int readl = 0, all = 0;
 
-    while ((readl = recv(cl->sock, &bin[all], cl->buflen, 0)) >= 0) {
-	all += readl;
-	if (readl == 0 || readl < cl->buflen) {
-	    if (cl->OnRead) {
-		if (cl->OnRead(cl, bin, all) != 0) {
-		    closesocket(cl->sock);
-		    if (cl->OnDisconnected)cl->OnDisconnected(cl);
-		    cl->sock = 0;
-		    break;
-		}
-	    }
-	    cl->count.AllRead += cl->count.PrevRead;
-	    cl->count.PrevRead = all;
-	    all = 0;
-	}
-
-	bin = realloc(bin, all + cl->buflen);
-
-    }
-    free(bin);
-
-    pthread_exit(NULL);
-}
 
 int SetCallBacksC(SCT *cl,
 	int (*OnRead)(SCT *cl, char *buf, int len),
@@ -115,22 +214,25 @@ int SetCallBacksC(SCT *cl,
     int count = 0;
 
     if (OnRead) {
-    	if(cl->OnRead){
+    	if(cl->OnRead&&cl->Treadrs.Rthread.thread){
 	    	_wCrossThreadClose(&cl->Treadrs.Rthread);
-    	}else cl->OnRead = OnRead;
-
-		if (_wCrossThreadCreate(&cl->Treadrs.Rthread, ReadThreadMain, cl) != 0) {
-			closesocket(cl->sock);
-			if (cl->OnDisconnected)cl->OnDisconnected(cl);
-			cl->sock = 0;
-			if (cl->OnErr)cl->OnErr(cl, -60);
-	}
-	count++;
+	    	cl->Treadrs.Rthread.thread=0;
+    	}
+    	cl->OnRead = OnRead;
+		count++;
     } else cl->OnRead = NULL;
+
+
     if (OnWrite) {
-	cl->OnWrite = OnWrite;
-	count++;
+    	if(cl->OnWrite&&cl->Treadrs.Wthread.thread){
+                _wCrossThreadClose(&cl->Treadrs.Wthread);
+				cl->Treadrs.Wthread.thread=0;
+    	}
+    	cl->OnWrite = OnWrite;
+    	count++;
     } else cl->OnWrite = NULL;
+
+
     if (OnDisconnected) {
 	cl->OnDisconnected = OnDisconnected;
 	count++;
@@ -143,72 +245,25 @@ int SetCallBacksC(SCT *cl,
 }
 
 
-static int WriteThreadMain(void *clntSock) {
-    SCT *cl = (SCT *) clntSock;
-    if (cl->OnWrite)cl->OnWrite(cl, cl->count.PrevWrite);
-    _wCrossThreadExit(0);
-    return 0;
+int Open(SCT *cl, char *host, char *port) {
+	if(cl)
+    return cl->Open(cl,host,port);
+    else return -1;
 }
 
-int Connect(SCT *cl, char *host, char *port) {
-    int status;
-    struct addrinfo *servinfo = NULL, *tservinfo = NULL; // указатель на результаты вызова
-
-    if ((status = getaddrinfo(host, port, &cl->hints, &servinfo)) != 0) {
-	if (cl->OnErr)cl->OnErr(cl, -10);
+int Start_Read(SCT *cl,int rbuflen){
+	if(cl){
+		if(rbuflen>0)cl->buflen=rbuflen;
+		return cl->Read(cl);
+	}
 	return -1;
-    } else {
-	//Можно продолжать-???:!
-	for (tservinfo = servinfo; tservinfo != NULL; tservinfo = tservinfo->ai_next) {
-	    cl->sock = socket(tservinfo->ai_family, tservinfo->ai_socktype,
-		    tservinfo->ai_protocol);
-	    if (cl->sock == -1)
-		continue;
-
-	    if (connect(cl->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1)
-		break; // Зашибись
-
-	    closesocket(cl->sock);
-	}
-	if (tservinfo == NULL) { // А адрес так и не вышел)
-	    if (cl->OnErr)cl->OnErr(cl, -20);
-	    return -2;
-	}
-	freeaddrinfo(servinfo);
-    }
-    return 0;
-
 }
 
 int Send(SCT *cl, char *buf, int len) {
-    int total = 0; // Сколько уже
-    int bytesleft = len; // Сколько нужно
-    int n = 0;
+	if(cl)return cl->Write(cl,buf,len);
+	else return 0;
+}
 
-    while (total < len && n != -1) {
-	n = send(cl->sock, &buf[total], bytesleft, 0);
-	if (n == -1) {
-	    if (cl->OnErr)cl->OnErr(cl, -100);
-	    break;
-	}
-	total += n;
-	bytesleft -= n;
-    }
-
-    if (n >= 0) {
-	cl->count.AllWrite += cl->count.PrevWrite;
-	cl->count.PrevWrite = total;
-
-
-	if (_wCrossThreadCreate(&cl->Treadrs.Wthread, WriteThreadMain, cl) != 0) {
-	    if (cl->OnErr)cl->OnErr(cl, -50);
-	}
-
-    } else {
-	closesocket(cl->sock);
-	if (cl->OnDisconnected)cl->OnDisconnected(cl);
-	cl->sock = 0;
-    }
-    return total;
-
+void Close(SCT *cl){
+	if(cl)cl->Close(cl);
 }
