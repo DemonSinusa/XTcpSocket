@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1580474434 source:/home/anton/DATA~CODE/MyGitCross/XTcpSocket/Example/main.c
+1580573090 source:/home/anton/DATA~CODE/MyGitCross/XTcpSocket/Example/main.c
 	<stdio.h>
 	<stdlib.h>
 	<fcntl.h>

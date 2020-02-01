@@ -245,19 +245,20 @@ int Listen(SST *serv, char *host, char *port) {
     char *hostint = NULL;
     struct addrinfo *servinfo = NULL, *tservinfo = NULL; // указатель на результаты вызова
 
+    if(serv->hints.ai_flags&~AI_PASSIVE){
     if(host&&strlen(host) > 3){
 		hostint=host;
     }else hostint =(char *)"localhost";
+    }
 
     if ((status = getaddrinfo(hostint, port, &serv->hints, &servinfo)) != 0) {
 	if (serv->OnErr)serv->OnErr(serv,NULL, -10);
+	fprintf(stderr,"getaddrinfo: %s\n", gai_strerror(status));
 	return -1;
     } else {
 	for (tservinfo = servinfo; tservinfo != NULL; tservinfo = tservinfo->ai_next) {
-	    serv->sock = socket(tservinfo->ai_family, tservinfo->ai_socktype,
-		    tservinfo->ai_protocol);
-	    if (serv->sock == -1)
-		continue;
+
+	    if ((serv->sock = socket(tservinfo->ai_family, tservinfo->ai_socktype,tservinfo->ai_protocol))==-1)continue;
 
 	    if (setsockopt(serv->sock, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof (one)) < 0) {
 		if (serv->OnErr)serv->OnErr(serv,NULL, -30);

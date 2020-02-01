@@ -84,9 +84,10 @@ void OnConnectedS(SST *serv, SCT *cl) {
 int OnReadS(SST *serv, SCT *cl, char *buf, int len) {
     printf("Клиент №%d ответил на %dБайт:%s\n", cl->sock, len, buf);
     if (SendToClient(cl, buf, len) == len) {
-	SCT *FreeNeutronNew = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32768);
+	SCT *FreeNeutronNew = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32767);
 	SetCallBacksC(FreeNeutronNew, OnReadC, OnWriteC, OnDisconnectC, OnErrC);
 	if (!Open(FreeNeutronNew, logalhst, zeport)) {
+		FreeNeutronNew->Read(FreeNeutronNew);
 	    snprintf(overbuffera, 255, "Следующий после №%d- №%d, говорит серверок №%d\n", cl->sock, FreeNeutronNew->sock, serv->sock);
 	    Send(FreeNeutronNew, overbuffera, strlen(overbuffera));
 	} else printf("Создание не прижилось...( активных клиентов по прежнему:%d\n", globalclient);
@@ -120,12 +121,12 @@ int main(int argc, char** argv) {
   //      sleep(3);
 
     printf("Запускаюсь...");
-    SCT *FreeNeutron = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32768);
+    SCT *FreeNeutron = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32767);
     printf("Инициализирован...");
     SetCallBacksC(FreeNeutron, OnReadC, OnWriteC, OnDisconnectC, OnErrC);
     printf("Закалбачен...");
     if (!Open(FreeNeutron, logalhst, zeport)) {
-	globalclient++;
+	FreeNeutron->Read(FreeNeutron);
 	printf("Успешно подрублено.");
 	char *f = (char *)"GET / HTTP/1.1 Host: ya.ru";
 	printf("Посылка->%s\n", f);

@@ -36,33 +36,41 @@ static int ReadThreadMain(void *clntSock) {
     int readl = 0, all = 0;
 
 
-    while(1){
-
-		    readl = recv(cl->sock, &bin[all], cl->buflen, 0);
-
-		    if(readl>=0){
+    while((readl = recv(cl->sock, &bin[all], cl->buflen, 0))>=0){
 				all+=readl;
-				if(readl==0||readl<cl->buflen){		//Признак конца потока данных
-					cl->count.PrevRead=all;
-					cl->count.AllRead+=cl->count.PrevRead;
+				if(readl==0){
 					if(cl->OnRead){
                         if(cl->OnRead(cl,bin,all)!=0){
                             cl->Close(cl);
                             break;
                         }
 					}
-					if(all<=cl->buflen){	//Новое значение реаллока должно быть >< предидущего
-                    	free(bin);
-                    	bin=NULL;
+					all=0;
+                    continue;
+				}else{
+					cl->count.PrevRead=all;
+					cl->count.AllRead+=cl->count.PrevRead;
+					if(readl<cl->buflen){	//Признак дочитанности
+						if(cl->OnRead){
+                        if(cl->OnRead(cl,bin,all)!=0){
+                            cl->Close(cl);
+                            break;
+                        }
 					}
-					all = 0;
+					//Дочитали, отработали,очистили и создали новый буфер.
+					all=0;
+					free(bin);
+					bin=(char *)malloc(cl->buflen);
+
+					}else{		//Признак необходимости дописать буфер, теперь без одинаковых выделений
+						bin=realloc(bin,all+cl->buflen);
+					}
 				}
-		    }else{						//Ошибка чтения сокета;
-		    	if (cl->OnErr)cl->OnErr(cl, -101);
+    }
+
+    if(readl<0){
+		    if (cl->OnErr)cl->OnErr(cl, -101);
 		    	cl->Close(cl);
-		    	break;
-		    }
-		    bin=realloc(bin,all+cl->buflen);
     }
 
     free(bin);
@@ -118,13 +126,13 @@ int open_client(SCT *cl, char *host, char *port){
 
     if ((status = getaddrinfo(host, port, &cl->hints, &clientinfo)) != 0) {
 	if (cl->OnErr)cl->OnErr(cl, -10);
+	fprintf(stderr,"getaddrinfo: %s\n", gai_strerror(status));
 	return -1;
     } else {
 	//Можно продолжать-???:!
 	for (tclientinfo = clientinfo; tclientinfo != NULL; tclientinfo = tclientinfo->ai_next) {
-	    cl->sock = socket(tclientinfo->ai_family, tclientinfo->ai_socktype,tclientinfo->ai_protocol);
-	    if (cl->sock == -1)
-		continue;
+
+	    if ((cl->sock = socket(tclientinfo->ai_family, tclientinfo->ai_socktype,tclientinfo->ai_protocol))==-1)continue;
 
 	    if (connect(cl->sock, tclientinfo->ai_addr, tclientinfo->ai_addrlen) != -1){
 			Ok=1;
