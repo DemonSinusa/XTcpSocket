@@ -115,7 +115,7 @@ int write_client(SCT *cl,char *buf,int len){
     	cl->count.PrevWrite=total;
 		cl->count.AllWrite+=cl->count.PrevWrite;
 	    if (_wCrossThreadCreate(&cl->Treadrs.Wthread, WriteThreadMain, cl) != 0) {
-	    if (cl->OnErr)cl->OnErr(cl, -50);
+	    if (cl->OnErr)cl->OnErr(cl, -60);
 	}
     }else total=-1;
 
