@@ -40,6 +40,7 @@
 
 
 SST *serv = NULL;
+char *f = (char *)"GET / HTTP/1.1 Host: ya.ru";
 
 char *logalhst = (char *) "localhost";
 char *zeport = (char *) "12345";
@@ -58,10 +59,13 @@ void OnDisconnectC(SCT *cl) {
 }
 
 int OnReadC(SCT *cl, char *buf, int len) {
-    printf("Клиент №%d словил: %s\n", cl->sock, buf);
+    if(len>0){
+    printf("Клиент №%d прочел %dБайт: %s\n", cl->sock,len, buf);
     if (Send(cl, buf, len) == len) {
 	return 0;
-    } else return -1;
+    }else return -1;
+    }
+    return 0;
 }
 
 int OnWriteC(SCT *cl, int len) {
@@ -70,9 +74,7 @@ int OnWriteC(SCT *cl, int len) {
 }
 
 void OnErrC(SCT *cl, int err) {
-    if (cl->sock > 0)
-	printf("Ошибка от клиента №%d под №%d\n", cl->sock, err);
-    else printf("Ошибка клиента %d, подключение не удалось.\n", err);
+	printf("Ошибка клиент №%d под №%d\n", cl->sock, err);
 }
 
 void OnConnectedS(SST *serv, SCT *cl) {
@@ -82,17 +84,20 @@ void OnConnectedS(SST *serv, SCT *cl) {
 }
 
 int OnReadS(SST *serv, SCT *cl, char *buf, int len) {
-    printf("Клиент №%d ответил на %dБайт:%s\n", cl->sock, len, buf);
+	if(len>0){
+    printf("Сервер %d прочел от №%d %dБайт\n",serv->sock, cl->sock, len);
     if (SendToClient(cl, buf, len) == len) {
-	SCT *FreeNeutronNew = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32767);
-	SetCallBacksC(FreeNeutronNew, OnReadC, OnWriteC, OnDisconnectC, OnErrC);
-	if (!Open(FreeNeutronNew, logalhst, zeport)) {
-		FreeNeutronNew->Read(FreeNeutronNew);
-	    snprintf(overbuffera, 255, "Следующий после №%d- №%d, говорит серверок №%d\n", cl->sock, FreeNeutronNew->sock, serv->sock);
-	    Send(FreeNeutronNew, overbuffera, strlen(overbuffera));
-	} else printf("Создание не прижилось...( активных клиентов по прежнему:%d\n", globalclient);
-	return 0;
+
+    	SCT *FreeNeuron = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32767);
+    	SetCallBacksC(FreeNeuron, OnReadC, NULL, OnDisconnectC, NULL);
+    		if (!Open(FreeNeuron, logalhst, zeport)) {
+				FreeNeuron->Read(FreeNeuron);
+				Send(FreeNeuron, buf, len);
+    		}
+
     } else return -1;
+	}
+	return 0;
 }
 
 int OnWriteS(SST *serv, SCT *cl, int len) {
@@ -104,6 +109,7 @@ void OnErrS(SST *serv,SCT *cl, int err) {
 	if(!cl)
     printf("Ошибка №%d сервер:%d\n", err, serv->sock);
     else printf("Ошибка №%d сервер:%d,клиент:%d\n", err, serv->sock,cl->sock);
+    printf("Подрубленных гаденышей:%d\n",globalclient);
 }
 
 int main(int argc, char** argv) {
@@ -128,7 +134,6 @@ int main(int argc, char** argv) {
     if (!Open(FreeNeutron, logalhst, zeport)) {
 	FreeNeutron->Read(FreeNeutron);
 	printf("Успешно подрублено.");
-	char *f = (char *)"GET / HTTP/1.1 Host: ya.ru";
 	printf("Посылка->%s\n", f);
 	Send(FreeNeutron, f, strlen(f));
     }

@@ -113,7 +113,7 @@ LCL *OnConnect(SST *serv,int sock){
 	LCL *cur=NULL;
 	SCT *item=NULL;
 	if(serv&&sock>0){
-        if((item=InitClient(s->hints.ai_family,s->hints.ai_socktype,s->hints.ai_flags,s->hints.ai_protocol,s->bufftoclient))){
+        if((item=InitClient(s->hints.ai_family,s->hints.ai_socktype,0,s->hints.ai_protocol,s->bufftoclient))){
         		item->sock=sock;
 
         		if(serv->first){
@@ -128,9 +128,6 @@ LCL *OnConnect(SST *serv,int sock){
         		item->OnDisconnected=cl_OnDisconnected;
         		item->OnWrite=cl_OnWrite;
         		item->OnRead=cl_OnRead;
-
-        		if(s->OnConnected)s->OnConnected(s,item);
-        		else if(s->OnErr)s->OnErr(s,NULL,-20);	//Важный кальбэк упущен.
         }
 	}
 	return cur;
@@ -219,7 +216,7 @@ int SetCallBacksS(SST *serv,
 }
 
 
-static int MainAccepto(void *data) {
+void MainAccepto(void *data) {
     SST *serv = (SST *) data;
     LCL *temp = NULL;
     int client = 0;
@@ -230,13 +227,15 @@ static int MainAccepto(void *data) {
     while ((client = accept(serv->sock, serv->hints.ai_addr, &serv->hints.ai_addrlen)) > 0) {
 
 	if((temp=OnConnect(serv,client))){
+		if(serv->OnConnected)serv->OnConnected(serv,temp->Client);
+        else if(serv->OnErr)serv->OnErr(serv,NULL,-20);	//Важный кальбэк упущен.
 		temp->Client->Read(temp->Client);
 	}
 
     }
     free(serv->hints.ai_addr);
-    _wCrossThreadExit(0);
-    return 0;
+
+    _wCrossThreadExit();
 }
 
 int Listen(SST *serv, char *host, char *port) {
@@ -253,7 +252,9 @@ int Listen(SST *serv, char *host, char *port) {
 
     if ((status = getaddrinfo(hostint, port, &serv->hints, &servinfo)) != 0) {
 	if (serv->OnErr)serv->OnErr(serv,NULL, -10);
-	fprintf(stderr,"getaddrinfo: %s\n", gai_strerror(status));
+#ifdef _DEBUG
+	fprintf(stderr,"getaddrinfo(%s,%s): %s\n",hostint,port, gai_strerror(status));
+#endif // _DEBUG_
 	return -1;
     } else {
 	for (tservinfo = servinfo; tservinfo != NULL; tservinfo = tservinfo->ai_next) {

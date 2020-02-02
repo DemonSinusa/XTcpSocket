@@ -14,7 +14,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
-					<Add option="-DDEBUG" />
+					<Add option="-D_DEBUG" />
 				</Compiler>
 			</Target>
 			<Target title="alib">
@@ -51,7 +51,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
-					<Add option="-DDEBUG" />
+					<Add option="-D_DEBUG" />
 				</Compiler>
 			</Target>
 			<Target title="EchoMultiCuster">

@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1580573090 source:/home/anton/DATA~CODE/MyGitCross/XTcpSocket/Example/main.c
+1580670333 source:/home/anton/DATA~CODE/MyGitCross/XTcpSocket/Example/main.c
 	<stdio.h>
 	<stdlib.h>
 	<fcntl.h>
@@ -20,7 +20,7 @@
 	"TCPClient.h"
 	"TCPServer.h"
 
-1579812236 /home/anton/DATA~CODE/MyGitCross/XTcpSocket//Threads.h
+1580670563 /home/anton/DATA~CODE/MyGitCross/XTcpSocket//Threads.h
 	"libexport.h"
 	<windows.h>
 	<pthread.h>

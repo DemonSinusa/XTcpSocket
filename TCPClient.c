@@ -30,7 +30,7 @@
 
 #include "TCPClient.h"
 
-static int ReadThreadMain(void *clntSock) {
+void ReadThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
     char *bin = (char *)malloc(cl->buflen);
     int readl = 0, all = 0;
@@ -39,6 +39,9 @@ static int ReadThreadMain(void *clntSock) {
     while((readl = recv(cl->sock, &bin[all], cl->buflen, 0))>=0){
 				all+=readl;
 				if(readl==0){
+#ifdef _DEBUG
+						fprintf(stdout,"Прочиталось 0 от %d",cl->sock);
+#endif
 					if(cl->OnRead){
                         if(cl->OnRead(cl,bin,all)!=0){
                             cl->Close(cl);
@@ -75,14 +78,14 @@ static int ReadThreadMain(void *clntSock) {
 
     free(bin);
 
-    return _wCrossThreadExit(0);
+    _wCrossThreadExit();
 }
 
-static int WriteThreadMain(void *clntSock) {
+void WriteThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
     if (cl->OnWrite)cl->OnWrite(cl, cl->count.PrevWrite);
-    _wCrossThreadExit(0);
-    return 0;
+
+    _wCrossThreadExit();
 }
 
 int read_client(SCT *cl){
@@ -126,8 +129,10 @@ int open_client(SCT *cl, char *host, char *port){
 
     if ((status = getaddrinfo(host, port, &cl->hints, &clientinfo)) != 0) {
 	if (cl->OnErr)cl->OnErr(cl, -10);
-	fprintf(stderr,"getaddrinfo: %s\n", gai_strerror(status));
-	return -1;
+#ifdef _DEBUG
+	fprintf(stderr,"getaddrinfo(%s,%s): %s\n",host,port, gai_strerror(status));
+#endif // _DEBUG_
+		return -1;
     } else {
 	//Можно продолжать-???:!
 	for (tclientinfo = clientinfo; tclientinfo != NULL; tclientinfo = tclientinfo->ai_next) {

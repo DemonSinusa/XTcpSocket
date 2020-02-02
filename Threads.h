@@ -22,9 +22,8 @@
 #define NANO 1000000000L
 
 typedef struct _thread_attr_core_{
-	int (*entrypoint) (void *);
+	void (*entrypoint) (void *);
 	void *attrs;
-	int retval;
 }TAC;
 
 typedef struct _cross_platform_thread_struct_{
@@ -34,7 +33,6 @@ typedef struct _cross_platform_thread_struct_{
 	LPDWORD ThreadId;
 #else
 	pthread_t thread;
-	pthread_attr_t thread_attr;
 #endif
 	int errcode;					//errcode потока
 	long ThreadTime;                //Аптайм потока c момента предшествующей остановки
@@ -44,8 +42,14 @@ typedef struct _cross_platform_thread_struct_{
 #ifdef __cplusplus
 extern "C" {
 #endif
-DLL_EXPORT int _wCrossThreadCreate(CPT *tr,int (*entrypoint) (void *),void *attrs);
-DLL_EXPORT int _wCrossThreadExit(int code);
+
+#ifdef _WIN32
+#define _wCrossThreadExit();	ExitThread(0);
+#else
+#define _wCrossThreadExit();	pthread_exit(NULL);
+#endif
+
+DLL_EXPORT int _wCrossThreadCreate(CPT *tr,void (*entrypoint) (void *),void *attrs);
 DLL_EXPORT void _wCrossThreadClose(CPT *tr);
 DLL_EXPORT long _wCrossThreadPause(CPT *tr);
 DLL_EXPORT long _wCrossThreadResume(CPT *tr);

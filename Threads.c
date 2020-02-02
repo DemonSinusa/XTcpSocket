@@ -16,13 +16,12 @@
 
 DWORD WINAPI NormThread(CONST LPVOID lpParam) {
 	TAC *tac = (TAC *)lpParam;
-	int retval = 0;
-	retval = ((TAC *)tac)->entrypoint(((TAC *)tac)->attrs);
+	((TAC *)tac)->entrypoint(((TAC *)tac)->attrs);
 	free(tac);
 	ExitProcess(retval);
 }
 
-DLL_EXPORT int _wCrossThreadCreate(CPT *tr, int (*entrypoint) (void *),void *attrs){
+DLL_EXPORT int _wCrossThreadCreate(CPT *tr, void (*entrypoint) (void *),void *attrs){
 	tr->errcode=0;
 	TAC *nt = (TAC *)malloc(sizeof(TAC));
 	nt->entrypoint = entrypoint;
@@ -35,10 +34,8 @@ DLL_EXPORT int _wCrossThreadCreate(CPT *tr, int (*entrypoint) (void *),void *att
 	}
 	return tr->errcode;
 }
-DLL_EXPORT int _wCrossThreadExit(int code){
-	ExitThread(code);
-	return code;
-}
+
+
 DLL_EXPORT void _wCrossThreadClose(CPT *tr){
 	CloseHandle(tr->thread);
 }
@@ -60,38 +57,27 @@ DLL_EXPORT long _wCrossThreadResume(CPT *tr){
 #else
 
 static void *NormThread(void *tac){
-	int retval=0;
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE,NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
-    retval=((TAC *)tac)->entrypoint(((TAC *)tac)->attrs);
+    ((TAC *)tac)->entrypoint(((TAC *)tac)->attrs);
     free(tac);
-    pthread_exit(&retval);
+    _wCrossThreadExit();
 }
 
-DLL_EXPORT int _wCrossThreadCreate(CPT *tr,int (*entrypoint) (void *),void *attrs){
+DLL_EXPORT int _wCrossThreadCreate(CPT *tr,void (*entrypoint) (void *),void *attrs){
 	clockid_t c_id;
 	struct timespec mt1;
 	tr->errcode=0;
-	pthread_attr_init(&tr->thread_attr);
-	if (!(pthread_attr_setdetachstate(&tr->thread_attr, PTHREAD_CREATE_DETACHED))) {
-		TAC *nt=(TAC *)malloc(sizeof(TAC));
-		nt->entrypoint=entrypoint;
-		nt->attrs=attrs;
-	 if((tr->errcode=pthread_create(&tr->thread,&tr->thread_attr,NormThread,nt))==0){
-	 		tr->status=STATE_EXCITED;
-	 if(!pthread_getcpuclockid(tr->thread, &c_id)){
-		if(!clock_gettime(c_id,&mt1)){
-			tr->ThreadTime=mt1.tv_sec*NANO+mt1.tv_nsec;
-		}
-	}
-	}
-	}
-	return tr->errcode;
-}
 
-DLL_EXPORT int _wCrossThreadExit(int code){
-	pthread_exit(&code);
-	return code;
+	TAC *nt=(TAC *)malloc(sizeof(TAC));
+	nt->entrypoint=entrypoint;
+	nt->attrs=attrs;
+	 		if((tr->errcode=pthread_create(&tr->thread,NULL,NormThread,nt))==0){
+	 			tr->status=STATE_EXCITED;
+	 			if(!pthread_getcpuclockid(tr->thread, &c_id)){
+					if(!clock_gettime(c_id,&mt1))tr->ThreadTime=mt1.tv_sec*NANO+mt1.tv_nsec;
+				}
+			}
+	return tr->errcode;
 }
 
 DLL_EXPORT void _wCrossThreadClose(CPT *tr){
