@@ -52,90 +52,110 @@ int globalclient=0;
  */
 
 
-void OnDisconnectC(SCT *cl) {
+void OnDisconnectC(SCT *cl)
+{
     printf("Клиент №%d отрублен\n", cl->sock);
     FinitClient(cl);
     globalclient--;
 }
 
-int OnReadC(SCT *cl, char *buf, int len) {
-    if(len>0){
-    printf("Клиент №%d прочел %dБайт: %s\n", cl->sock,len, buf);
-    if (Send(cl, buf, len) == len) {
-	return 0;
-    }else return -1;
+int OnReadC(SCT *cl, char *buf, int len)
+{
+    if(len>0)
+    {
+        printf("Клиент №%d прочел %dБайт: %s\n", cl->sock,len, buf);
+        if (Send(cl, buf, len) == len)
+        {
+            return 0;
+        }
+        else
+            return -1;
     }
     return 0;
 }
 
-int OnWriteC(SCT *cl, int len) {
+int OnWriteC(SCT *cl, int len)
+{
     printf("Серверу от №%d отправлено:%dБайт\n", cl->sock, cl->count.PrevWrite);
     return 0;
 }
 
-void OnErrC(SCT *cl, int err) {
-	printf("Ошибка клиент №%d под №%d\n", cl->sock, err);
+void OnErrC(SCT *cl, int err)
+{
+    printf("Ошибка клиент №%d под №%d\n", cl->sock, err);
 }
 
-void OnConnectedS(SST *serv, SCT *cl) {
+void OnConnectedS(SST *serv, SCT *cl)
+{
     globalclient++;
     printf("Подрубился клиент №%d\n Итого их %d\n", cl->sock, globalclient);
 
 }
 
-int OnReadS(SST *serv, SCT *cl, char *buf, int len) {
-	if(len>0){
-    printf("Сервер %d прочел от №%d %dБайт\n",serv->sock, cl->sock, len);
-    if (SendToClient(cl, buf, len) == len) {
+int OnReadS(SST *serv, SCT *cl, char *buf, int len)
+{
+    if(len>0)
+    {
+        printf("Сервер %d прочел от №%d %dБайт\n",serv->sock, cl->sock, len);
+        if (SendToClient(cl, buf, len) == len)
+        {
 
-    	SCT *FreeNeuron = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32767);
-    	SetCallBacksC(FreeNeuron, OnReadC, NULL, OnDisconnectC, NULL);
-    		if (!Open(FreeNeuron, logalhst, zeport)) {
-				FreeNeuron->Read(FreeNeuron);
-				Send(FreeNeuron, buf, len);
-    		}
+            SCT *FreeNeuron = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32767);
+            SetCallBacksC(FreeNeuron, OnReadC, NULL, OnDisconnectC, NULL);
+            if (!Open(FreeNeuron, logalhst, zeport))
+            {
+                FreeNeuron->Read(FreeNeuron);
+                Send(FreeNeuron, buf, len);
+            }
 
-    } else return -1;
-	}
-	return 0;
+        }
+        else
+            return 0;
+    }
+    return 0;
 }
 
-int OnWriteS(SST *serv, SCT *cl, int len) {
+int OnWriteS(SST *serv, SCT *cl, int len)
+{
     printf("Клиенту №%d записано-%dБайт\n", cl->sock, cl->count.PrevWrite);
     return 0;
 }
 
-void OnErrS(SST *serv,SCT *cl, int err) {
-	if(!cl)
-    printf("Ошибка №%d сервер:%d\n", err, serv->sock);
-    else printf("Ошибка №%d сервер:%d,клиент:%d\n", err, serv->sock,cl->sock);
+void OnErrS(SST *serv,SCT *cl, int err)
+{
+    if(!cl)
+        printf("Ошибка №%d сервер:%d\n", err, serv->sock);
+    else
+        printf("Ошибка №%d сервер:%d,клиент:%d\n", err, serv->sock,cl->sock);
     printf("Подрубленных гаденышей:%d\n",globalclient);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     //   TCPServer serv(3257, new_client);
     serv = InitServer(AF_UNSPEC, SOCK_STREAM, AI_PASSIVE, IPPROTO_TCP, 32768);
     SetCallBacksS(serv,
-	    OnConnectedS,
-	    OnReadS,
-	    OnWriteS,
-	    NULL,
-	    OnErrS);
+                  OnConnectedS,
+                  OnReadS,
+                  OnWriteS,
+                  NULL,
+                  OnErrS);
 
     Listen(serv, NULL, zeport);
 
-  //      sleep(3);
+    //      sleep(3);
 
     printf("Запускаюсь...");
     SCT *FreeNeutron = InitClient(AF_UNSPEC, SOCK_STREAM, 0, IPPROTO_TCP, 32767);
     printf("Инициализирован...");
     SetCallBacksC(FreeNeutron, OnReadC, OnWriteC, OnDisconnectC, OnErrC);
     printf("Закалбачен...");
-    if (!Open(FreeNeutron, logalhst, zeport)) {
-	FreeNeutron->Read(FreeNeutron);
-	printf("Успешно подрублено.");
-	printf("Посылка->%s\n", f);
-	Send(FreeNeutron, f, strlen(f));
+    if (!Open(FreeNeutron, logalhst, zeport))
+    {
+        FreeNeutron->Read(FreeNeutron);
+        printf("Успешно подрублено.");
+        printf("Посылка->%s\n", f);
+        Send(FreeNeutron, f, strlen(f));
     }
 
 

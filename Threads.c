@@ -76,7 +76,8 @@ DLL_EXPORT int _wCrossThreadCreate(CPT *tr,void (*entrypoint) (void *),void *att
 	nt->entrypoint=entrypoint;
 	nt->attrs=attrs;
 	nt->obj = tr;
-	 		if((tr->errcode=pthread_create(&tr->thread,NULL,NormThread,nt))==0){
+	tr->errcode=pthread_create(&tr->thread,NULL,NormThread,nt);
+	 		if(tr->thread!=0){
 	 			tr->status=STATE_EXCITED;
 	 			if(!pthread_getcpuclockid(tr->thread, &c_id)){
 					if(!clock_gettime(c_id,&mt1))tr->ThreadTime=mt1.tv_sec*NANO+mt1.tv_nsec;
