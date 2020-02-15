@@ -40,7 +40,7 @@ void ReadThreadMain(void *clntSock) {
 				all+=readl;
 				if(readl==0){
 #ifdef _DEBUG
-						fprintf(stdout,"Прочиталось 0 от %d",cl->sock);
+						fprintf(stdout,"Прочиталось 0 от %d",(int)cl->sock);
 #endif
 					if(cl->OnRead){
                         if(cl->OnRead(cl,bin,all)!=0){
@@ -71,21 +71,19 @@ void ReadThreadMain(void *clntSock) {
 				}
     }
 
-    if(readl<0){
-		    if (cl->OnErr)cl->OnErr(cl, -101);
+    if(readl<0&&cl->sock!=0){
+		    if (cl->OnErr)cl->OnErr(cl, -100);
 		    	cl->Close(cl);
     }
 
     free(bin);
 
-    _wCrossThreadExit();
 }
 
 void WriteThreadMain(void *clntSock) {
     SCT *cl = (SCT *) clntSock;
     if (cl->OnWrite)cl->OnWrite(cl, cl->count.PrevWrite);
-
-    _wCrossThreadExit();
+	free(cl);
 }
 
 int read_client(SCT *cl){
@@ -99,6 +97,7 @@ int write_client(SCT *cl,char *buf,int len){
 	int total = 0; // Сколько уже
     int bytesleft = len; // Сколько нужно
     int sendl=0;
+	SCT *s_cl = NULL;
 
     while(bytesleft){
 		    sendl = send(cl->sock, &buf[total], bytesleft, 0);
@@ -114,13 +113,18 @@ int write_client(SCT *cl,char *buf,int len){
     if(bytesleft==0){
     	cl->count.PrevWrite=total;
 		cl->count.AllWrite+=cl->count.PrevWrite;
-	    if (_wCrossThreadCreate(&cl->Treadrs.Wthread, WriteThreadMain, cl) != 0) {
-	    if (cl->OnErr)cl->OnErr(cl, -60);
-	}
+		if (cl->sock != 0) {
+			s_cl = (SCT*)malloc(sizeof(SCT));
+			memcpy(s_cl, cl, sizeof(SCT));
+			if (_wCrossThreadCreate(&s_cl->Treadrs.Wthread, WriteThreadMain, s_cl) != 0) {
+				if (cl->OnErr)cl->OnErr(cl, -60);
+				free(s_cl);
+			}
+			cl->Treadrs.Wthread = s_cl->Treadrs.Wthread;
+		}
     }else total=-1;
 
     return total;
-
 }
 
 int open_client(SCT *cl, char *host, char *port){
@@ -130,7 +134,11 @@ int open_client(SCT *cl, char *host, char *port){
     if ((status = getaddrinfo(host, port, &cl->hints, &clientinfo)) != 0) {
 	if (cl->OnErr)cl->OnErr(cl, -10);
 #ifdef _DEBUG
+#ifdef WIN32
+	fprintf(stderr,"getaddrinfo(%s,%s): %ws\n",host,port, gai_strerror(status));
+	#else
 	fprintf(stderr,"getaddrinfo(%s,%s): %s\n",host,port, gai_strerror(status));
+	#endif // WIN32
 #endif // _DEBUG_
 		return -1;
     } else {
@@ -139,7 +147,7 @@ int open_client(SCT *cl, char *host, char *port){
 
 	    if ((cl->sock = socket(tclientinfo->ai_family, tclientinfo->ai_socktype,tclientinfo->ai_protocol))==-1)continue;
 
-	    if (connect(cl->sock, tclientinfo->ai_addr, tclientinfo->ai_addrlen) != -1){
+	    if (connect(cl->sock, tclientinfo->ai_addr, (int)tclientinfo->ai_addrlen) != -1){
 			Ok=1;
 			break; // Зашибись
 	    }
@@ -159,16 +167,19 @@ int open_client(SCT *cl, char *host, char *port){
 
 void close_client(SCT *cl){
 	if(cl){
-	closesocket(cl->sock);
-	if (cl->OnDisconnected)cl->OnDisconnected(cl);
-	cl->sock = 0;
+		//При потоковости рубануть сперва залупленых
+	//	if (cl->Treadrs.Wthread.thread)_wCrossThreadClose(&cl->Treadrs.Wthread);
+		if (cl->Treadrs.Rthread.thread)_wCrossThreadClose(&cl->Treadrs.Rthread);
+		closesocket(cl->sock);
+		if (cl->OnDisconnected)cl->OnDisconnected(cl);
+		cl->sock = 0;
 	}
 }
 
 SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
     SCT *cl = NULL;
 
-#ifdef WIN32
+#ifdef WIN32_note
 
     WSADATA wsaData;
 
@@ -200,13 +211,10 @@ SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
 
 void FinitClient(SCT *cl) {
     if (cl) {
-	//При потоковости рубануть сперва их
-	if (cl->Treadrs.Wthread.thread)_wCrossThreadClose(&cl->Treadrs.Wthread);
-	if (cl->Treadrs.Rthread.thread)_wCrossThreadClose(&cl->Treadrs.Rthread);
-	if (cl->sock > 0)closesocket(cl->sock);
+		if (cl->sock != 0)closesocket(cl->sock);
 	free(cl);
     }
-#ifdef WIN32
+#ifdef WIN32_note
 
     if (WSACleanup())
 	fprintf(stderr,"Чот ничистицца...\n");

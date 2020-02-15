@@ -17,8 +17,9 @@
 DWORD WINAPI NormThread(CONST LPVOID lpParam) {
 	TAC *tac = (TAC *)lpParam;
 	((TAC *)tac)->entrypoint(((TAC *)tac)->attrs);
+	tac->obj->thread = NULL;
 	free(tac);
-	ExitProcess(retval);
+	_wCrossThreadExit();
 }
 
 DLL_EXPORT int _wCrossThreadCreate(CPT *tr, void (*entrypoint) (void *),void *attrs){
@@ -26,6 +27,7 @@ DLL_EXPORT int _wCrossThreadCreate(CPT *tr, void (*entrypoint) (void *),void *at
 	TAC *nt = (TAC *)malloc(sizeof(TAC));
 	nt->entrypoint = entrypoint;
 	nt->attrs = attrs;
+	nt->obj = tr;
 	if((tr->thread=CreateThread(NULL, 0, NormThread, nt, 0, tr->ThreadId))){
 		tr->status=STATE_EXCITED;
 	}else{
@@ -38,6 +40,7 @@ DLL_EXPORT int _wCrossThreadCreate(CPT *tr, void (*entrypoint) (void *),void *at
 
 DLL_EXPORT void _wCrossThreadClose(CPT *tr){
 	CloseHandle(tr->thread);
+	tr->thread = NULL;
 }
 DLL_EXPORT long _wCrossThreadPause(CPT *tr){
 	if(tr->status==STATE_EXCITED){
@@ -59,6 +62,7 @@ DLL_EXPORT long _wCrossThreadResume(CPT *tr){
 static void *NormThread(void *tac){
 	pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,NULL);
     ((TAC *)tac)->entrypoint(((TAC *)tac)->attrs);
+	((TAC *)tac)->obj->thread = 0;
     free(tac);
     _wCrossThreadExit();
 }
@@ -71,6 +75,7 @@ DLL_EXPORT int _wCrossThreadCreate(CPT *tr,void (*entrypoint) (void *),void *att
 	TAC *nt=(TAC *)malloc(sizeof(TAC));
 	nt->entrypoint=entrypoint;
 	nt->attrs=attrs;
+	nt->obj = tr;
 	 		if((tr->errcode=pthread_create(&tr->thread,NULL,NormThread,nt))==0){
 	 			tr->status=STATE_EXCITED;
 	 			if(!pthread_getcpuclockid(tr->thread, &c_id)){
@@ -84,6 +89,7 @@ DLL_EXPORT void _wCrossThreadClose(CPT *tr){
 	void *statusp=NULL;
 	tr->errcode=pthread_cancel(tr->thread);
 	pthread_join(tr->thread, &statusp);
+	tr->thread = 0;
 }
 
 long _wCrossThreadPause(CPT *tr){

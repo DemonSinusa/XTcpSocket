@@ -21,11 +21,6 @@
 
 #define NANO 1000000000L
 
-typedef struct _thread_attr_core_{
-	void (*entrypoint) (void *);
-	void *attrs;
-}TAC;
-
 typedef struct _cross_platform_thread_struct_{
 	int status;
 #ifdef _WIN32
@@ -37,6 +32,12 @@ typedef struct _cross_platform_thread_struct_{
 	int errcode;					//errcode потока
 	long ThreadTime;                //Аптайм потока c момента предшествующей остановки
 }CPT;
+
+typedef struct _thread_attr_core_ {
+	CPT *obj;
+	void(*entrypoint) (void *);
+	void *attrs;
+}TAC;
 
 
 #ifdef __cplusplus

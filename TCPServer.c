@@ -108,13 +108,19 @@ void cl_OnErr(SCT *cl, int err){
 	}
 }
 
-LCL *OnConnect(SST *serv,int sock){
+LCL *OnConnect(SST *serv,SOCKET sock){
 	SST *s=serv;
 	LCL *cur=NULL;
 	SCT *item=NULL;
 	if(serv&&sock>0){
         if((item=InitClient(s->hints.ai_family,s->hints.ai_socktype,0,s->hints.ai_protocol,s->bufftoclient))){
         		item->sock=sock;
+
+				//Кальбаки расставляем тут
+				item->OnErr = cl_OnErr;
+				item->OnDisconnected = cl_OnDisconnected;
+				item->OnWrite = cl_OnWrite;
+				item->OnRead = cl_OnRead;
 
         		if(serv->first){
 					if((cur=Add(item,s->end,s)))s->end=cur;
@@ -123,11 +129,6 @@ LCL *OnConnect(SST *serv,int sock){
         			if((cur=Add(item,NULL,s)))s->first=s->end=cur;
 					else FinitClient(item);
         		}
-        		//Кальбаки расставляем тут
-        		item->OnErr=cl_OnErr;
-        		item->OnDisconnected=cl_OnDisconnected;
-        		item->OnWrite=cl_OnWrite;
-        		item->OnRead=cl_OnRead;
         }
 	}
 	return cur;
@@ -138,12 +139,13 @@ LCL *OnConnect(SST *serv,int sock){
 
 SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
     SST *serv = NULL;
-#ifdef WIN32
+
+#ifdef WIN32_note
 
     WSADATA wsaData;
 
     if (WSAStartup(WINSOCK_VERSION, &wsaData)) {
-	sprintf(stderr,"Winsock не инициализирован!\n");
+	fprintf(stderr,"Winsock не инициализирован!\n");
 	WSACleanup();
 	return NULL;
     } else fprintf(stdout,"Winsock всё ОК!\n");
@@ -167,15 +169,16 @@ void FinitServer(SST *serv) {
     if (serv) {
 	while (serv->first) {
 	    tmp = serv->first->next;
-	    FinitClient(serv->first->Client);
-	    free(serv->first);
+		serv->first->Client->OnDisconnected(serv->first->Client);
+//	    FinitClient(serv->first->Client);
+//	    free(serv->first);
 	    serv->first = tmp;
 	}
 	closesocket(serv->sock);
 	free(serv);
     }
 
-#ifdef WIN32
+#ifdef WIN32_note
 
     if (WSACleanup())
 	fprintf(stderr,"Чот ничистицца...\n");
@@ -219,23 +222,23 @@ int SetCallBacksS(SST *serv,
 void MainAccepto(void *data) {
     SST *serv = (SST *) data;
     LCL *temp = NULL;
-    int client = 0;
+    SOCKET client = 0;
+	unsigned int addrlen = 0;
     serv->hints.ai_addr = (struct sockaddr *)malloc(sizeof(struct sockaddr));
 	memset(serv->hints.ai_addr, 0x00, sizeof(struct sockaddr));
-	serv->hints.ai_addrlen = sizeof(struct sockaddr);
+	serv->hints.ai_addrlen= addrlen = sizeof(struct sockaddr);
 
-    while ((client = accept(serv->sock, serv->hints.ai_addr, &serv->hints.ai_addrlen)) > 0) {
+    while ((client = accept(serv->sock, serv->hints.ai_addr, &addrlen)) != INVALID_SOCKET) {
+		serv->hints.ai_addrlen = addrlen;
 
 	if((temp=OnConnect(serv,client))){
 		if(serv->OnConnected)serv->OnConnected(serv,temp->Client);
         else if(serv->OnErr)serv->OnErr(serv,NULL,-20);	//Важный кальбэк упущен.
 		temp->Client->Read(temp->Client);
 	}
-
     }
     free(serv->hints.ai_addr);
 
-    _wCrossThreadExit();
 }
 
 int Listen(SST *serv, char *host, char *port) {
@@ -253,7 +256,11 @@ int Listen(SST *serv, char *host, char *port) {
     if ((status = getaddrinfo(hostint, port, &serv->hints, &servinfo)) != 0) {
 	if (serv->OnErr)serv->OnErr(serv,NULL, -10);
 #ifdef _DEBUG
-	fprintf(stderr,"getaddrinfo(%s,%s): %s\n",hostint,port, gai_strerror(status));
+#ifdef WIN32
+	fprintf(stderr,"getaddrinfo(%s,%s): %ws\n",host,port, gai_strerror(status));
+	#else
+	fprintf(stderr,"getaddrinfo(%s,%s): %s\n",host,port, gai_strerror(status));
+	#endif // WIN32
 #endif // _DEBUG_
 	return -1;
     } else {
@@ -264,8 +271,7 @@ int Listen(SST *serv, char *host, char *port) {
 	    if (setsockopt(serv->sock, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof (one)) < 0) {
 		if (serv->OnErr)serv->OnErr(serv,NULL, -30);
 	    }
-
-	    if (bind(serv->sock, tservinfo->ai_addr, tservinfo->ai_addrlen) != -1){
+	    if (bind(serv->sock, tservinfo->ai_addr, (int)tservinfo->ai_addrlen) != -1){
 			Ok=1;
 			break; //Всё ОК
 	    }

@@ -14,6 +14,13 @@
 #ifndef XSOCKET_H
 #define XSOCKET_H
 
+#ifndef WIN32
+#define INVALID_SOCKET	-1
+#define closesocket(x)    close(x)
+typedef int SOCKET;
+
+#endif
+
 typedef struct _counters_ {
     int AllRead, AllWrite;
     int PrevRead, PrevWrite;
@@ -24,7 +31,8 @@ typedef struct _thread_clnt_ {
 } TCT;
 
 typedef struct _sockclient_type_ {
-    int sock, buflen;
+    SOCKET sock;
+    int buflen;
     struct addrinfo hints;
     TCT Treadrs;
     Counts count;
@@ -53,7 +61,8 @@ typedef struct _thread_srvt_ {
 } TST;
 
 typedef struct _sockserver_type_ {
-    int sock, bufftoclient;
+    SOCKET sock;
+    int bufftoclient;
     struct addrinfo hints;
     TST threads;
     Counts count;
@@ -70,10 +79,6 @@ typedef struct _sockserver_type_ {
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifndef WIN32
-#define closesocket  close
 #endif
 
 #ifdef __cplusplus

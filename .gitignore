@@ -1,5 +1,10 @@
+/x64/*
+/bin/*
+/Debug/*
 /build/*
 /dist/*
+/obj/*
+/Release/*
 /Objects/*
 /Example/bin/*
 /Example/obj/*
