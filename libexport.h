@@ -21,7 +21,7 @@ extern "C" {
 #ifdef LIB
 #define DLL_EXPORT __declspec(dllexport)
 #elif NOLIB
-#define DLL_EXPORT
+#define DLL_EXPORT 
 #else
 #define DLL_EXPORT __declspec(dllimport)
 #endif

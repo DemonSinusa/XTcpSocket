@@ -14,6 +14,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
+					<Add option="-DNOLIB" />
 					<Add option="-D_DEBUG" />
 				</Compiler>
 			</Target>
@@ -25,6 +26,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add option="-DNOLIB" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -38,6 +40,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-O2" />
+					<Add option="-DLIB" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -51,6 +54,7 @@
 				<Option compiler="gcc" />
 				<Compiler>
 					<Add option="-g" />
+					<Add option="-DLIB" />
 					<Add option="-D_DEBUG" />
 				</Compiler>
 			</Target>

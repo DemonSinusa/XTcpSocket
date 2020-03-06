@@ -22,7 +22,7 @@ DWORD WINAPI NormThread(CONST LPVOID lpParam) {
 	_wCrossThreadExit();
 }
 
-DLL_EXPORT int _wCrossThreadCreate(CPT *tr, void (*entrypoint) (void *),void *attrs){
+int _wCrossThreadCreate(CPT *tr, void (*entrypoint) (void *),void *attrs){
 	tr->errcode=0;
 	TAC *nt = (TAC *)malloc(sizeof(TAC));
 	nt->entrypoint = entrypoint;
@@ -38,18 +38,18 @@ DLL_EXPORT int _wCrossThreadCreate(CPT *tr, void (*entrypoint) (void *),void *at
 }
 
 
-DLL_EXPORT void _wCrossThreadClose(CPT *tr){
+void _wCrossThreadClose(CPT *tr){
 	CloseHandle(tr->thread);
 	tr->thread = NULL;
 }
-DLL_EXPORT long _wCrossThreadPause(CPT *tr){
+long _wCrossThreadPause(CPT *tr){
 	if(tr->status==STATE_EXCITED){
 	tr->ThreadTime=SuspendThread(tr->thread);
 	tr->status=STATE_READY;
 	}
 	return tr->ThreadTime;
 }
-DLL_EXPORT long _wCrossThreadResume(CPT *tr){
+long _wCrossThreadResume(CPT *tr){
 	if(tr->status==STATE_READY){
 	tr->ThreadTime=ResumeThread(tr->thread);
 	tr->status=STATE_EXCITED;
@@ -67,7 +67,7 @@ static void *NormThread(void *tac){
     _wCrossThreadExit();
 }
 
-DLL_EXPORT int _wCrossThreadCreate(CPT *tr,void (*entrypoint) (void *),void *attrs){
+int _wCrossThreadCreate(CPT *tr,void (*entrypoint) (void *),void *attrs){
 	clockid_t c_id;
 	struct timespec mt1;
 	tr->errcode=0;
@@ -86,7 +86,7 @@ DLL_EXPORT int _wCrossThreadCreate(CPT *tr,void (*entrypoint) (void *),void *att
 	return tr->errcode;
 }
 
-DLL_EXPORT void _wCrossThreadClose(CPT *tr){
+void _wCrossThreadClose(CPT *tr){
 	void *statusp=NULL;
 	tr->errcode=pthread_cancel(tr->thread);
 	pthread_join(tr->thread, &statusp);

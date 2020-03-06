@@ -176,7 +176,7 @@ void close_client(SCT *cl){
 	}
 }
 
-SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
+DLL_EXPORT SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
     SCT *cl = NULL;
 
 #ifdef WIN32_note
@@ -209,7 +209,7 @@ SCT *InitClient(int domain, int type, int flags, int protocol, int rbuflen) {
     return cl;
 }
 
-void FinitClient(SCT *cl) {
+DLL_EXPORT void FinitClient(SCT *cl) {
     if (cl) {
 		if (cl->sock != 0)closesocket(cl->sock);
 	free(cl);
@@ -227,7 +227,7 @@ void FinitClient(SCT *cl) {
 
 
 
-int SetCallBacksC(SCT *cl,
+DLL_EXPORT int SetCallBacksC(SCT *cl,
 	int (*OnRead)(SCT *cl, char *buf, int len),
 	int (*OnWrite)(SCT *cl, int len),
 	void (*OnDisconnected)(SCT *cl),
@@ -266,13 +266,13 @@ int SetCallBacksC(SCT *cl,
 }
 
 
-int Open(SCT *cl, char *host, char *port) {
+DLL_EXPORT int Open(SCT *cl, char *host, char *port) {
 	if(cl)
     return cl->Open(cl,host,port);
     else return -1;
 }
 
-int Start_Read(SCT *cl,int rbuflen){
+DLL_EXPORT int Start_Read(SCT *cl,int rbuflen){
 	if(cl){
 		if(rbuflen>0)cl->buflen=rbuflen;
 		return cl->Read(cl);
@@ -280,11 +280,11 @@ int Start_Read(SCT *cl,int rbuflen){
 	return -1;
 }
 
-int Send(SCT *cl, char *buf, int len) {
+DLL_EXPORT int Send(SCT *cl, char *buf, int len) {
 	if(cl)return cl->Write(cl,buf,len);
 	else return 0;
 }
 
-void Close(SCT *cl){
+DLL_EXPORT void Close(SCT *cl){
 	if(cl)cl->Close(cl);
 }

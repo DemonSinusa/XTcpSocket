@@ -20,21 +20,21 @@
 extern "C" {
 #endif
 
-    SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen);
+    DLL_EXPORT SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen);
 
-    int SetCallBacksS(SST *serv,
+    DLL_EXPORT int SetCallBacksS(SST *serv,
 	    void (*OnConnected)(SST *serv, SCT *cl),
 	    int (*OnRead)(SST *serv, SCT *cl, char *buf, int len),
 	    int (*OnWrite)(SST *serv, SCT *cl, int len),
 	    void (*OnDisconnected)(SST *serv, SCT *cl),
 	    void (*OnErr)(SST *serv,SCT *cl, int err));
 
-    int Listen(SST *, char *host, char *port);
-    void Todeaf(SST *serv);
+    DLL_EXPORT int Listen(SST *, char *host, char *port);
+    DLL_EXPORT void Todeaf(SST *serv);
 
-    int SendToClient(SCT *cl, char *buf, int len);
+    DLL_EXPORT int SendToClient(SCT *cl, char *buf, int len);
 
-    void FinitServer(SST *);
+    DLL_EXPORT void FinitServer(SST *);
 
 
 #ifdef __cplusplus

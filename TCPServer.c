@@ -137,7 +137,7 @@ LCL *OnConnect(SST *serv,SOCKET sock){
 //-----------------------------
 
 
-SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
+DLL_EXPORT SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
     SST *serv = NULL;
 
 #ifdef WIN32_note
@@ -164,7 +164,7 @@ SST *InitServer(int domain, int type, int flags, int protocol, int rbuflen) {
     return serv;
 }
 
-void FinitServer(SST *serv) {
+DLL_EXPORT void FinitServer(SST *serv) {
     LCL *tmp = NULL;
     if (serv) {
 	while (serv->first) {
@@ -188,7 +188,7 @@ void FinitServer(SST *serv) {
 #endif
 }
 
-int SetCallBacksS(SST *serv,
+DLL_EXPORT int SetCallBacksS(SST *serv,
 	void (*OnConnected)(SST *serv, SCT *cl),
 	int (*OnRead)(SST *serv, SCT *cl, char *buf, int len),
 	int (*OnWrite)(SST *serv, SCT *cl, int len),
@@ -241,7 +241,7 @@ void MainAccepto(void *data) {
 
 }
 
-int Listen(SST *serv, char *host, char *port) {
+DLL_EXPORT int Listen(SST *serv, char *host, char *port) {
     int status=0,retval=0;
     int one = 1,Ok=0;
     char *hostint = NULL;
@@ -305,14 +305,14 @@ int Listen(SST *serv, char *host, char *port) {
     return retval;
 }
 
-void Todeaf(SST *serv){
+DLL_EXPORT void Todeaf(SST *serv){
 	_wCrossThreadClose(&serv->threads.AcptThread);
 	closesocket(serv->sock);
 	serv->sock = 0;
 }
 
 
-int SendToClient(SCT *cl, char *buf, int len) {
+DLL_EXPORT int SendToClient(SCT *cl, char *buf, int len) {
     return cl->Write(cl,buf,len);
 }
 

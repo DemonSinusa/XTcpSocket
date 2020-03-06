@@ -13,6 +13,7 @@
 
 #ifndef XSOCKET_H
 #define XSOCKET_H
+#include "libexport.h"
 
 #ifndef WIN32
 #define INVALID_SOCKET	-1

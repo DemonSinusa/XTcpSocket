@@ -51,9 +51,9 @@ extern "C" {
 #endif
 
 DLL_EXPORT int _wCrossThreadCreate(CPT *tr,void (*entrypoint) (void *),void *attrs);
-DLL_EXPORT void _wCrossThreadClose(CPT *tr);
-DLL_EXPORT long _wCrossThreadPause(CPT *tr);
-DLL_EXPORT long _wCrossThreadResume(CPT *tr);
+void _wCrossThreadClose(CPT *tr);
+long _wCrossThreadPause(CPT *tr);
+long _wCrossThreadResume(CPT *tr);
 
 #ifdef __cplusplus
 }
